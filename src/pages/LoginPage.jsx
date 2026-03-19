@@ -1,38 +1,38 @@
-import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
-import { useAuthStore } from '../stores/authStore'
-import toast from 'react-hot-toast'
+import { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
+import { useAuthStore } from "../stores/authStore";
+import toast from "react-hot-toast";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const { login, isLoading } = useAuthStore()
-  const navigate = useNavigate()
-  const location = useLocation()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, isLoading } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const from = location.state?.from || '/chat'
+  const from = location.state?.from || "/chat";
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!email || !password) {
-      toast.error('请填写邮箱和密码')
-      return
+      toast.error("请填写邮箱和密码");
+      return;
     }
-    const result = await login(email, password)
+    const result = await login(email, password);
     if (result.success) {
-      toast.success('登录成功')
-      navigate(from, { replace: true })
+      toast.success("登录成功");
+      navigate(from, { replace: true });
     } else {
-      toast.error(result.error || '登录失败')
+      toast.error(result.error || "登录失败");
     }
-  }
+  };
 
   const handleGoogleLogin = () => {
     // TODO: Google OAuth 需要后端配置 OIDC Client ID/Secret
-    toast('Google 登录即将推出，请先使用邮箱登录', { icon: '🔜' })
-  }
+    toast("Google 登录即将推出，请先使用邮箱登录", { icon: "🔜" });
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-cream px-4">
@@ -47,7 +47,7 @@ export default function LoginPage() {
 
         <div className="bg-card rounded-2xl border border-border p-8">
           {/* Google OAuth */}
-          <button
+          {/* <button
             onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-border rounded-xl bg-card hover:bg-cream text-ink text-sm font-medium cursor-pointer transition-colors"
           >
@@ -64,12 +64,14 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-border" />
             <span className="text-ink-muted text-xs">或</span>
             <div className="flex-1 h-px bg-border" />
-          </div>
+          </div> */}
 
           {/* Email + Password */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-ink-muted mb-1.5">邮箱地址</label>
+              <label className="block text-xs text-ink-muted mb-1.5">
+                邮箱地址
+              </label>
               <input
                 type="email"
                 value={email}
@@ -82,13 +84,16 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs text-ink-muted">密码</label>
-                <Link to="/reset-password" className="text-xs text-accent hover:text-accent-hover no-underline">
+                <Link
+                  to="/reset-password"
+                  className="text-xs text-accent hover:text-accent-hover no-underline"
+                >
                   忘记密码？
                 </Link>
               </div>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="输入密码"
@@ -110,13 +115,16 @@ export default function LoginPage() {
               disabled={isLoading}
               className="w-full py-3 rounded-xl bg-ink text-cream-light text-sm font-medium cursor-pointer hover:bg-ink-light transition-colors border-none disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? '登录中...' : '登录'}
+              {isLoading ? "登录中..." : "登录"}
             </button>
           </form>
 
           <p className="text-center text-xs text-ink-muted mt-6">
-            还没有账号？{' '}
-            <Link to="/register" className="text-accent hover:text-accent-hover no-underline font-medium">
+            还没有账号？{" "}
+            <Link
+              to="/register"
+              className="text-accent hover:text-accent-hover no-underline font-medium"
+            >
               立即注册
             </Link>
           </p>
@@ -127,5 +135,5 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
-  )
+  );
 }
