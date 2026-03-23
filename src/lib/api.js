@@ -31,6 +31,7 @@ export async function apiRequest(endpoint, options = {}) {
   const config = {
     method,
     headers,
+    // credentials: "include",
   };
 
   if (body && method !== "GET") {

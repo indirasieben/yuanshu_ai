@@ -5,7 +5,7 @@ import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuthStore();
@@ -16,11 +16,11 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error("请填写邮箱和密码");
+    if (!usernameOrEmail || !password) {
+      toast.error("请填写用户名或邮箱地址和密码");
       return;
     }
-    const result = await login(email, password);
+    const result = await login(usernameOrEmail, password);
     if (result.success) {
       toast.success("登录成功");
       navigate(from, { replace: true });
@@ -70,15 +70,15 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs text-ink-muted mb-1.5">
-                邮箱地址
+                用户名或邮箱地址
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
+                type="text"
+                value={usernameOrEmail}
+                onChange={(e) => setUsernameOrEmail(e.target.value)}
+                placeholder="请输入用户名或邮箱地址"
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-cream-light text-ink text-sm outline-none focus:border-ink-muted transition-colors"
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
             <div>

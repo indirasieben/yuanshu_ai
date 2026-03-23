@@ -32,7 +32,7 @@ export default function MessageBubble({ message }) {
   const isUser = message.role === 'user'
   const [copied, setCopied] = useState(false)
   const { getModel } = useModelStore()
-  const { regenerateLastMessage, isStreaming } = useChatStore()
+  const { regenerateAssistantMessage, isStreaming } = useChatStore()
 
   const handleCopy = async () => {
     try {
@@ -44,7 +44,7 @@ export default function MessageBubble({ message }) {
 
   const handleRegenerate = () => {
     if (!isStreaming) {
-      regenerateLastMessage()
+      regenerateAssistantMessage(message.id)
     }
   }
 

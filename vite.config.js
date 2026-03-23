@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  base: "/client/",
   plugins: [react(), tailwindcss()],
   // server: {
   //   proxy: {
@@ -22,7 +21,7 @@ export default defineConfig({
     host: "0.0.0.0",
     proxy: {
       "/local": {
-        target: "https://v1api.dgrid.ai/v1",
+        target: "https://api-yuanshu.vibe3.ai/",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/local/, ""),
         configure: (proxy) => {

@@ -1,98 +1,124 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Search, RefreshCw, X, Copy, ExternalLink } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Search, RefreshCw, X, Copy, ExternalLink } from "lucide-react";
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts'
-import { useAuthStore } from '../../stores/authStore'
-import { api } from '../../lib/api'
-import toast from 'react-hot-toast'
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { useAuthStore } from "../../stores/authStore";
+import { api } from "../../lib/api";
+import toast from "react-hot-toast";
 
 // ────────────────────────────────────────────────────────────
 // 工具函数
 // ────────────────────────────────────────────────────────────
 function formatQuota(v, digits = 2) {
-  if (v == null) return '--'
-  return `$${(v / 500000).toFixed(digits)}`
+  if (v == null) return "--";
+  return `$${(v / 500000).toFixed(digits)}`;
 }
 
 function formatNum(v) {
-  if (v == null) return '--'
-  return Number(v).toLocaleString('zh-CN')
+  if (v == null) return "--";
+  return Number(v).toLocaleString("zh-CN");
 }
 
 function toDatetimeLocal(date) {
-  const pad = n => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function toUnixSec(datetimeLocal) {
-  if (!datetimeLocal) return undefined
-  return Math.floor(new Date(datetimeLocal).getTime() / 1000)
+  if (!datetimeLocal) return undefined;
+  return Math.floor(new Date(datetimeLocal).getTime() / 1000);
 }
 
 function defaultStart() {
-  return toDatetimeLocal(new Date(Date.now() - 24 * 3600 * 1000))
+  return toDatetimeLocal(new Date(Date.now() - 24 * 3600 * 1000));
 }
 
 function defaultEnd() {
-  return toDatetimeLocal(new Date(Date.now() + 3600 * 1000))
+  return toDatetimeLocal(new Date(Date.now() + 3600 * 1000));
 }
 
 function getGreeting() {
-  const h = new Date().getHours()
-  if (h < 6)  return '凌晨好'
-  if (h < 12) return '早上好'
-  if (h < 14) return '中午好'
-  if (h < 18) return '下午好'
-  return '晚上好'
+  const h = new Date().getHours();
+  if (h < 6) return "凌晨好";
+  if (h < 12) return "早上好";
+  if (h < 14) return "中午好";
+  if (h < 18) return "下午好";
+  return "晚上好";
 }
 
 // 由模型名哈希生成固定颜色
 const MODEL_PALETTE = [
-  '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#84cc16',
-  '#64748b', '#a855f7', '#0ea5e9', '#d946ef', '#22c55e',
-]
+  "#6366f1",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ec4899",
+  "#14b8a6",
+  "#f97316",
+  "#84cc16",
+  "#64748b",
+  "#a855f7",
+  "#0ea5e9",
+  "#d946ef",
+  "#22c55e",
+];
 
 function modelColor(name, index) {
-  if (index !== undefined) return MODEL_PALETTE[index % MODEL_PALETTE.length]
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0
-  return MODEL_PALETTE[Math.abs(hash) % MODEL_PALETTE.length]
+  if (index !== undefined) return MODEL_PALETTE[index % MODEL_PALETTE.length];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++)
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return MODEL_PALETTE[Math.abs(hash) % MODEL_PALETTE.length];
 }
 
 // 时间粒度聚合：将小时级数据合并为天/周桶
 function aggregateByGrain(rawData, grain, startTs, endTs) {
-  const GRAIN_SEC = { hour: 3600, day: 86400, week: 604800 }
-  const step = GRAIN_SEC[grain] || 3600
+  const GRAIN_SEC = { hour: 3600, day: 86400, week: 604800 };
+  const step = GRAIN_SEC[grain] || 3600;
 
   // 生成时间桶
-  const buckets = {}
-  let t = Math.floor(startTs / step) * step
+  const buckets = {};
+  let t = Math.floor(startTs / step) * step;
   while (t <= endTs) {
-    buckets[t] = {}
-    t += step
+    buckets[t] = {};
+    t += step;
   }
 
-  rawData.forEach(item => {
-    const bucket = Math.floor(item.created_at / step) * step
-    if (!buckets[bucket]) buckets[bucket] = {}
-    const model = item.model_name || '其他'
-    if (!buckets[bucket][model]) buckets[bucket][model] = { quota: 0, count: 0, token_used: 0 }
-    buckets[bucket][model].quota      += item.quota      || 0
-    buckets[bucket][model].count      += item.count      || 0
-    buckets[bucket][model].token_used += item.token_used || 0
-  })
+  rawData.forEach((item) => {
+    const bucket = Math.floor(item.created_at / step) * step;
+    if (!buckets[bucket]) buckets[bucket] = {};
+    const model = item.model_name || "其他";
+    if (!buckets[bucket][model])
+      buckets[bucket][model] = { quota: 0, count: 0, token_used: 0 };
+    buckets[bucket][model].quota += item.quota || 0;
+    buckets[bucket][model].count += item.count || 0;
+    buckets[bucket][model].token_used += item.token_used || 0;
+  });
 
-  return buckets
+  return buckets;
 }
 
 function formatBucketLabel(ts, grain) {
-  const d = new Date(ts * 1000)
-  if (grain === 'hour') return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:00`
-  if (grain === 'week') return `${d.getMonth() + 1}/${d.getDate()}`
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  const d = new Date(ts * 1000);
+  if (grain === "hour")
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:00`;
+  if (grain === "week") return `${d.getMonth() + 1}/${d.getDate()}`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -105,7 +131,7 @@ function SkeletonCard() {
       <div className="h-6 w-28 bg-cream-dark rounded mb-2" />
       <div className="h-3 w-16 bg-cream-dark rounded" />
     </div>
-  )
+  );
 }
 
 // ────────────────────────────────────────────────────────────
@@ -118,66 +144,85 @@ function StatCard({ label, value, sub, accent }) {
       <p className="text-xl font-semibold text-ink leading-tight">{value}</p>
       {sub && <p className="text-xs text-ink-faint mt-1">{sub}</p>}
     </div>
-  )
+  );
 }
 
 // ────────────────────────────────────────────────────────────
 // SearchModal 弹窗
 // ────────────────────────────────────────────────────────────
 function SearchModal({ params, onConfirm, onClose }) {
-  const [local, setLocal] = useState({ ...params })
+  const [local, setLocal] = useState({ ...params });
 
   useEffect(() => {
-    const handler = e => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   const handleConfirm = () => {
-    const startSec = toUnixSec(local.startTime)
-    const endSec   = toUnixSec(local.endTime)
+    const startSec = toUnixSec(local.startTime);
+    const endSec = toUnixSec(local.endTime);
     if (endSec - startSec > 2592000) {
-      toast.error('查询时间跨度不能超过 1 个月')
-      return
+      toast.error("查询时间跨度不能超过 1 个月");
+      return;
     }
-    onConfirm(local)
-  }
+    onConfirm(local);
+  };
 
   return (
     <div
       className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div className="bg-card rounded-xl border border-border w-full max-w-sm p-5 relative">
-        <button onClick={onClose} className="absolute right-4 top-4 text-ink-muted hover:text-ink cursor-pointer">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 text-ink-muted hover:text-ink cursor-pointer"
+        >
           <X size={16} />
         </button>
         <p className="text-sm font-medium text-ink mb-4">搜索条件</p>
 
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-ink-muted mb-1">起始时间</label>
+            <label className="block text-xs text-ink-muted mb-1">
+              起始时间
+            </label>
             <input
               type="datetime-local"
               value={local.startTime}
-              onChange={e => setLocal(l => ({ ...l, startTime: e.target.value }))}
+              onChange={(e) =>
+                setLocal((l) => ({ ...l, startTime: e.target.value }))
+              }
               className="w-full px-3 py-2 rounded-lg border border-border bg-cream-light text-ink text-xs outline-none focus:border-ink-muted"
             />
           </div>
           <div>
-            <label className="block text-xs text-ink-muted mb-1">结束时间</label>
+            <label className="block text-xs text-ink-muted mb-1">
+              结束时间
+            </label>
             <input
               type="datetime-local"
               value={local.endTime}
-              onChange={e => setLocal(l => ({ ...l, endTime: e.target.value }))}
+              onChange={(e) =>
+                setLocal((l) => ({ ...l, endTime: e.target.value }))
+              }
               className="w-full px-3 py-2 rounded-lg border border-border bg-cream-light text-ink text-xs outline-none focus:border-ink-muted"
             />
           </div>
           <div>
-            <label className="block text-xs text-ink-muted mb-1">时间粒度</label>
+            <label className="block text-xs text-ink-muted mb-1">
+              时间粒度
+            </label>
             <select
               value={local.grain}
-              onChange={e => setLocal(l => ({ ...l, grain: e.target.value }))}
+              onChange={(e) =>
+                setLocal((l) => ({ ...l, grain: e.target.value }))
+              }
               className="w-full px-3 py-2 rounded-lg border border-border bg-cream-light text-ink text-xs outline-none cursor-pointer"
             >
               <option value="hour">按小时</option>
@@ -203,7 +248,7 @@ function SearchModal({ params, onConfirm, onClose }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ────────────────────────────────────────────────────────────
@@ -212,24 +257,32 @@ function SearchModal({ params, onConfirm, onClose }) {
 function ApiInfoPanel({ apiInfoList }) {
   const handleCopy = async (url) => {
     try {
-      await navigator.clipboard.writeText(url)
-      toast.success('链接已复制')
-    } catch { /* noop */ }
-  }
+      await navigator.clipboard.writeText(url);
+      toast.success("链接已复制");
+    } catch {
+      /* noop */
+    }
+  };
 
-  if (!apiInfoList || apiInfoList.length === 0) return null
+  if (!apiInfoList || apiInfoList.length === 0) return null;
 
   return (
-    <div className="bg-card rounded-xl border border-border p-4 overflow-y-auto" style={{ maxHeight: 480 }}>
+    <div
+      className="bg-card rounded-xl border border-border p-4 overflow-y-auto"
+      style={{ maxHeight: 480 }}
+    >
       <p className="text-xs font-medium text-ink mb-3">API 信息</p>
       <div className="space-y-3">
-        {apiInfoList.map(item => (
-          <div key={item.id} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
+        {apiInfoList.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0"
+          >
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-              style={{ backgroundColor: item.color || '#6366f1' }}
+              style={{ backgroundColor: item.color || "#6366f1" }}
             >
-              {(item.route || '').slice(0, 2) || 'v1'}
+              {(item.route || "").slice(0, 2) || "v1"}
             </div>
             <div className="flex-1 min-w-0">
               <button
@@ -240,7 +293,9 @@ function ApiInfoPanel({ apiInfoList }) {
                 {item.url}
               </button>
               {item.description && (
-                <p className="text-xs text-ink-muted mt-0.5 truncate">{item.description}</p>
+                <p className="text-xs text-ink-muted mt-0.5 truncate">
+                  {item.description}
+                </p>
               )}
               <div className="flex gap-2 mt-1.5">
                 <a
@@ -249,7 +304,8 @@ function ApiInfoPanel({ apiInfoList }) {
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-[11px] text-ink-muted hover:text-ink no-underline transition-colors"
                 >
-                  <ExternalLink size={10} />测速
+                  <ExternalLink size={10} />
+                  测速
                 </a>
                 <a
                   href={item.url}
@@ -257,13 +313,15 @@ function ApiInfoPanel({ apiInfoList }) {
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-[11px] text-ink-muted hover:text-ink no-underline transition-colors"
                 >
-                  <ExternalLink size={10} />跳转
+                  <ExternalLink size={10} />
+                  跳转
                 </a>
                 <button
                   onClick={() => handleCopy(item.url)}
                   className="flex items-center gap-1 text-[11px] text-ink-muted hover:text-ink cursor-pointer transition-colors"
                 >
-                  <Copy size={10} />复制
+                  <Copy size={10} />
+                  复制
                 </button>
               </div>
             </div>
@@ -271,88 +329,94 @@ function ApiInfoPanel({ apiInfoList }) {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 // ────────────────────────────────────────────────────────────
 // 自定义 Tooltip（图表悬浮提示）
 // ────────────────────────────────────────────────────────────
 function ChartTooltip({ active, payload, label, mode }) {
-  if (!active || !payload?.length) return null
+  if (!active || !payload?.length) return null;
   return (
     <div className="bg-card border border-border rounded-xl px-3 py-2 shadow-sm text-xs">
       <p className="text-ink-muted mb-1">{label}</p>
-      {payload.map(p => (
+      {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ backgroundColor: p.color }}
+          />
           <span className="text-ink-muted">{p.name}：</span>
           <span className="text-ink font-medium">
-            {mode === 'quota' ? formatQuota(p.value, 4) : formatNum(p.value)}
+            {mode === "quota" ? formatQuota(p.value, 4) : formatNum(p.value)}
           </span>
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 // ────────────────────────────────────────────────────────────
 // 图表区
 // ────────────────────────────────────────────────────────────
 function ChartsPanel({ rawData, params }) {
-  const [activeTab, setActiveTab] = useState(0)
+  const [activeTab, setActiveTab] = useState(0);
 
-  const TABS = ['消耗分布', '消耗趋势', '调用次数分布', '调用次数排行']
+  const TABS = ["消耗分布", "消耗趋势", "调用次数分布", "调用次数排行"];
 
   // 聚合处理
   const { buckets, models, timeLabels, timeKeys } = useMemo(() => {
-    if (!rawData.length) return { buckets: {}, models: [], timeLabels: [], timeKeys: [] }
-    const startSec = toUnixSec(params.startTime)
-    const endSec   = toUnixSec(params.endTime)
-    const b = aggregateByGrain(rawData, params.grain, startSec, endSec)
+    if (!rawData.length)
+      return { buckets: {}, models: [], timeLabels: [], timeKeys: [] };
+    const startSec = toUnixSec(params.startTime);
+    const endSec = toUnixSec(params.endTime);
+    const b = aggregateByGrain(rawData, params.grain, startSec, endSec);
 
-    const modelSet = new Set()
-    rawData.forEach(d => modelSet.add(d.model_name || '其他'))
-    const models = [...modelSet]
+    const modelSet = new Set();
+    rawData.forEach((d) => modelSet.add(d.model_name || "其他"));
+    const models = [...modelSet];
 
-    const timeKeys   = Object.keys(b).map(Number).sort((a, b) => a - b)
-    const timeLabels = timeKeys.map(k => formatBucketLabel(k, params.grain))
+    const timeKeys = Object.keys(b)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const timeLabels = timeKeys.map((k) => formatBucketLabel(k, params.grain));
 
-    return { buckets: b, models, timeLabels, timeKeys }
-  }, [rawData, params])
+    return { buckets: b, models, timeLabels, timeKeys };
+  }, [rawData, params]);
 
   // Tab 1/2 数据（柱/线）
   const timeSeriesData = useMemo(() => {
     return timeKeys.map((k, i) => {
-      const row = { time: timeLabels[i] }
-      models.forEach(m => {
-        row[m] = buckets[k]?.[m] ?? {}
-      })
-      return row
-    })
-  }, [timeKeys, timeLabels, models, buckets])
+      const row = { time: timeLabels[i] };
+      models.forEach((m) => {
+        row[m] = buckets[k]?.[m] ?? {};
+      });
+      return row;
+    });
+  }, [timeKeys, timeLabels, models, buckets]);
 
   // Tab 3 数据（饼图）
   const pieData = useMemo(() => {
-    const totals = {}
-    rawData.forEach(d => {
-      const m = d.model_name || '其他'
-      totals[m] = (totals[m] || 0) + (d.count || 0)
-    })
-    return Object.entries(totals).map(([name, value]) => ({ name, value }))
-  }, [rawData])
+    const totals = {};
+    rawData.forEach((d) => {
+      const m = d.model_name || "其他";
+      totals[m] = (totals[m] || 0) + (d.count || 0);
+    });
+    return Object.entries(totals).map(([name, value]) => ({ name, value }));
+  }, [rawData]);
 
   // Tab 4 数据（排行柱状图）
   const rankData = useMemo(() => {
-    return [...pieData].sort((a, b) => b.value - a.value)
-  }, [pieData])
+    return [...pieData].sort((a, b) => b.value - a.value);
+  }, [pieData]);
 
-  const noData = rawData.length === 0
+  const noData = rawData.length === 0;
 
   const renderEmpty = () => (
     <div className="flex items-center justify-center h-64 text-sm text-ink-muted">
       <p>暂无数据，请调整时间范围后重新查询</p>
     </div>
-  )
+  );
 
   return (
     <div className="bg-card rounded-xl border border-border p-4">
@@ -364,8 +428,8 @@ function ChartsPanel({ rawData, params }) {
             onClick={() => setActiveTab(i)}
             className={`px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors ${
               activeTab === i
-                ? 'bg-card text-ink shadow-sm'
-                : 'text-ink-muted hover:text-ink'
+                ? "bg-card text-ink shadow-sm"
+                : "text-ink-muted hover:text-ink"
             }`}
           >
             {t}
@@ -374,77 +438,160 @@ function ChartsPanel({ rawData, params }) {
       </div>
 
       {/* Tab 0: 消耗分布 — 堆积柱状图 */}
-      {activeTab === 0 && (
-        noData ? renderEmpty() : (
+      {activeTab === 0 &&
+        (noData ? (
+          renderEmpty()
+        ) : (
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={timeSeriesData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" vertical={false} />
-              <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#9A9188' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#9A9188' }} tickLine={false} axisLine={false}
-                tickFormatter={v => `$${(v / 500000).toFixed(3)}`} width={64} />
+            <BarChart
+              data={timeSeriesData}
+              margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#E8E4DE"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 10, fill: "#9A9188" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#9A9188" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => `$${(v / 500000).toFixed(3)}`}
+                width={64}
+              />
               <Tooltip content={<ChartTooltip mode="quota" />} />
               <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
               {models.map((m, i) => (
-                <Bar key={m} dataKey={row => row[m]?.quota || 0} name={m} stackId="a"
-                  fill={modelColor(m, i)} radius={i === models.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
+                <Bar
+                  key={m}
+                  dataKey={(row) => row[m]?.quota || 0}
+                  name={m}
+                  stackId="a"
+                  fill={modelColor(m, i)}
+                  radius={i === models.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+                />
               ))}
             </BarChart>
           </ResponsiveContainer>
-        )
-      )}
+        ))}
 
       {/* Tab 1: 消耗趋势 — 折线图 */}
-      {activeTab === 1 && (
-        noData ? renderEmpty() : (
+      {activeTab === 1 &&
+        (noData ? (
+          renderEmpty()
+        ) : (
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={timeSeriesData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" vertical={false} />
-              <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#9A9188' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#9A9188' }} tickLine={false} axisLine={false}
-                tickFormatter={v => `$${(v / 500000).toFixed(3)}`} width={64} />
+            <LineChart
+              data={timeSeriesData}
+              margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#E8E4DE"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 10, fill: "#9A9188" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#9A9188" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => `$${(v / 500000).toFixed(3)}`}
+                width={64}
+              />
               <Tooltip content={<ChartTooltip mode="quota" />} />
               <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
               {models.map((m, i) => (
-                <Line key={m} type="monotone" dataKey={row => row[m]?.quota || 0} name={m}
-                  stroke={modelColor(m, i)} dot={false} strokeWidth={1.5} />
+                <Line
+                  key={m}
+                  type="monotone"
+                  dataKey={(row) => row[m]?.quota || 0}
+                  name={m}
+                  stroke={modelColor(m, i)}
+                  dot={false}
+                  strokeWidth={1.5}
+                />
               ))}
             </LineChart>
           </ResponsiveContainer>
-        )
-      )}
+        ))}
 
       {/* Tab 2: 调用次数分布 — 环形饼图 */}
-      {activeTab === 2 && (
-        noData || pieData.length === 0 ? renderEmpty() : (
+      {activeTab === 2 &&
+        (noData || pieData.length === 0 ? (
+          renderEmpty()
+        ) : (
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name"
-                cx="50%" cy="50%" innerRadius={70} outerRadius={110}
-                paddingAngle={2} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
-                labelLine={{ stroke: '#9A9188', strokeWidth: 1 }}
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={70}
+                outerRadius={110}
+                paddingAngle={2}
+                label={({ name, percent }) =>
+                  `${name} ${(percent * 100).toFixed(1)}%`
+                }
+                labelLine={{ stroke: "#9A9188", strokeWidth: 1 }}
               >
                 {pieData.map((entry, i) => (
                   <Cell key={entry.name} fill={modelColor(entry.name, i)} />
                 ))}
               </Pie>
-              <Tooltip formatter={v => [formatNum(v), '调用次数']} />
+              <Tooltip formatter={(v) => [formatNum(v), "调用次数"]} />
               <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
-        )
-      )}
+        ))}
 
       {/* Tab 3: 调用次数排行 — 横向条形图 */}
-      {activeTab === 3 && (
-        noData || rankData.length === 0 ? renderEmpty() : (
-          <ResponsiveContainer width="100%" height={Math.max(200, rankData.length * 36)}>
-            <BarChart data={rankData} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: '#9A9188' }} tickLine={false} axisLine={false}
-                tickFormatter={v => formatNum(v)} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#9A9188' }} tickLine={false}
-                axisLine={false} width={90} />
-              <Tooltip formatter={v => [formatNum(v), '调用次数']} />
+      {activeTab === 3 &&
+        (noData || rankData.length === 0 ? (
+          renderEmpty()
+        ) : (
+          <ResponsiveContainer
+            width="100%"
+            height={Math.max(200, rankData.length * 36)}
+          >
+            <BarChart
+              data={rankData}
+              layout="vertical"
+              margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#E8E4DE"
+                horizontal={false}
+              />
+              <XAxis
+                type="number"
+                tick={{ fontSize: 10, fill: "#9A9188" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => formatNum(v)}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                tick={{ fontSize: 10, fill: "#9A9188" }}
+                tickLine={false}
+                axisLine={false}
+                width={90}
+              />
+              <Tooltip formatter={(v) => [formatNum(v), "调用次数"]} />
               <Bar dataKey="value" name="调用次数" radius={[0, 3, 3, 0]}>
                 {rankData.map((entry, i) => (
                   <Cell key={entry.name} fill={modelColor(entry.name, i)} />
@@ -452,102 +599,108 @@ function ChartsPanel({ rawData, params }) {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        )
-      )}
+        ))}
     </div>
-  )
+  );
 }
 
 // ────────────────────────────────────────────────────────────
 // 主组件
 // ────────────────────────────────────────────────────────────
 export default function UsageStats() {
-  const { user } = useAuthStore()
+  const { user } = useAuthStore();
 
   // 搜索参数
   const [params, setParams] = useState(() => {
-    const saved = localStorage.getItem('data_export_default_time') || 'hour'
+    const saved = localStorage.getItem("data_export_default_time") || "hour";
     return {
       startTime: defaultStart(),
-      endTime:   defaultEnd(),
-      grain:     saved,
-    }
-  })
+      endTime: defaultEnd(),
+      grain: saved,
+    };
+  });
 
   // 图表原始数据
-  const [rawData, setRawData] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [rawData, setRawData] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   // 系统状态（API 信息）
-  const [apiInfoEnabled, setApiInfoEnabled] = useState(false)
-  const [apiInfoList, setApiInfoList] = useState([])
+  const [apiInfoEnabled, setApiInfoEnabled] = useState(false);
+  const [apiInfoList, setApiInfoList] = useState([]);
 
   // 弹窗
-  const [showSearch, setShowSearch] = useState(false)
+  const [showSearch, setShowSearch] = useState(false);
 
   // ── 拉取图表数据 ──────────────────────────────────────────
   const fetchChartData = useCallback(async (p) => {
-    setLoading(true)
+    setLoading(true);
     try {
       const qs = new URLSearchParams({
         start_timestamp: toUnixSec(p.startTime),
-        end_timestamp:   toUnixSec(p.endTime),
-      })
-      const data = await api.get(`/api/data/self/?${qs}`)
+        end_timestamp: toUnixSec(p.endTime),
+      });
+      const data = await api.get(`/api/data/self/?${qs}`);
       if (data?.success) {
-        setRawData(Array.isArray(data.data) ? data.data : [])
+        setRawData(Array.isArray(data.data) ? data.data : []);
       }
     } catch {
-      setRawData([])
+      setRawData([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   // ── 拉取系统状态 ──────────────────────────────────────────
   const fetchStatus = useCallback(async () => {
     try {
-      const data = await api.get('/api/status')
-      setApiInfoEnabled(!!(data?.data?.api_info_enabled || data?.api_info_enabled))
-      const list = data?.data?.api_info || data?.api_info || []
-      setApiInfoList(Array.isArray(list) ? list : [])
-    } catch { /* noop */ }
-  }, [])
+      const data = await api.get("/api/status");
+      setApiInfoEnabled(
+        !!(data?.data?.api_info_enabled || data?.api_info_enabled),
+      );
+      const list = data?.data?.api_info || data?.api_info || [];
+      setApiInfoList(Array.isArray(list) ? list : []);
+    } catch {
+      /* noop */
+    }
+  }, []);
 
   useEffect(() => {
-    fetchStatus()
-    fetchChartData(params)
+    fetchStatus();
+    fetchChartData(params);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   // ── 刷新 ──────────────────────────────────────────────────
-  const handleRefresh = () => fetchChartData(params)
+  const handleRefresh = () => fetchChartData(params);
 
   // ── 搜索弹窗确认 ──────────────────────────────────────────
   const handleSearchConfirm = (newParams) => {
-    localStorage.setItem('data_export_default_time', newParams.grain)
-    setParams(newParams)
-    setShowSearch(false)
-    fetchChartData(newParams)
-  }
+    localStorage.setItem("data_export_default_time", newParams.grain);
+    setParams(newParams);
+    setShowSearch(false);
+    fetchChartData(newParams);
+  };
 
   // ── 聚合统计数字 ──────────────────────────────────────────
-  const { totalQuota, totalCount, totalTokens, avgRpm, avgTpm } = useMemo(() => {
-    let totalQuota = 0, totalCount = 0, totalTokens = 0
-    rawData.forEach(d => {
-      totalQuota  += d.quota      || 0
-      totalCount  += d.count      || 0
-      totalTokens += d.token_used || 0
-    })
+  const { totalQuota, totalCount, totalTokens, avgRpm, avgTpm } =
+    useMemo(() => {
+      let totalQuota = 0,
+        totalCount = 0,
+        totalTokens = 0;
+      rawData.forEach((d) => {
+        totalQuota += d.quota || 0;
+        totalCount += d.count || 0;
+        totalTokens += d.token_used || 0;
+      });
 
-    const startSec    = toUnixSec(params.startTime)
-    const endSec      = toUnixSec(params.endTime)
-    const minuteSpan  = Math.max(1, (endSec - startSec) / 60)
-    const avgRpm = (totalCount  / minuteSpan).toFixed(3)
-    const avgTpm = (totalTokens / minuteSpan).toFixed(3)
+      const startSec = toUnixSec(params.startTime);
+      const endSec = toUnixSec(params.endTime);
+      const minuteSpan = Math.max(1, (endSec - startSec) / 60);
+      const avgRpm = (totalCount / minuteSpan).toFixed(3);
+      const avgTpm = (totalTokens / minuteSpan).toFixed(3);
 
-    return { totalQuota, totalCount, totalTokens, avgRpm, avgTpm }
-  }, [rawData, params])
+      return { totalQuota, totalCount, totalTokens, avgRpm, avgTpm };
+    }, [rawData, params]);
 
   return (
     <div>
@@ -555,7 +708,9 @@ export default function UsageStats() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="text-xs text-ink-muted">{getGreeting()}，</p>
-          <h2 className="text-base font-medium text-ink">{user?.display_name || user?.username || '用户'}</h2>
+          <h2 className="text-base font-medium text-ink">
+            {user?.display_name || user?.username || "用户"}
+          </h2>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -571,7 +726,7 @@ export default function UsageStats() {
             title="刷新"
             className="w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center cursor-pointer transition-colors border-none disabled:opacity-60"
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
@@ -579,7 +734,9 @@ export default function UsageStats() {
       {/* ── 4 组统计卡片 ── */}
       {loading ? (
         <div className="grid grid-cols-2 gap-3 mb-5">
-          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 mb-5">
@@ -639,8 +796,16 @@ export default function UsageStats() {
       )}
 
       {/* ── 图表区 + API 信息面板 ── */}
-      <div className={`flex gap-4 ${apiInfoEnabled && apiInfoList.length > 0 ? 'items-start' : ''}`}>
-        <div className={apiInfoEnabled && apiInfoList.length > 0 ? 'flex-1 min-w-0' : 'w-full'}>
+      <div
+        className={`flex gap-4 ${apiInfoEnabled && apiInfoList.length > 0 ? "items-start" : ""}`}
+      >
+        <div
+          className={
+            apiInfoEnabled && apiInfoList.length > 0
+              ? "flex-1 min-w-0"
+              : "w-full"
+          }
+        >
           {loading ? (
             <div className="bg-card rounded-xl border border-border p-4 flex items-center justify-center h-64">
               <div className="flex flex-col items-center gap-2 text-ink-muted">
@@ -669,5 +834,5 @@ export default function UsageStats() {
         />
       )}
     </div>
-  )
+  );
 }

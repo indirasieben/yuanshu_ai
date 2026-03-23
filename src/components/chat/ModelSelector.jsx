@@ -1,25 +1,26 @@
-import { useState, useRef } from 'react'
-import { ChevronDown, Check } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { useModelStore } from '../../stores/modelStore'
-import { useChatStore } from '../../stores/chatStore'
+import { useState, useRef } from "react";
+import { ChevronDown, Check } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useModelStore } from "../../stores/modelStore";
+import { useChatStore } from "../../stores/chatStore";
+import { DEFAULT_MODEL } from "../../lib/config";
 
 export default function ModelSelector() {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
 
-  const { getFavoriteModels, getModel, allModels } = useModelStore()
-  const { getActiveConversation, switchModel } = useChatStore()
+  const { getFavoriteModels, getModel, allModels } = useModelStore();
+  const { getActiveConversation, switchModel } = useChatStore();
 
-  const activeConversation = getActiveConversation()
-  const currentModelId = activeConversation?.model || 'claude-4-sonnet'
-  const currentModel = getModel(currentModelId)
-  const favorites = getFavoriteModels()
+  const activeConversation = getActiveConversation();
+  const currentModelId = activeConversation?.model || DEFAULT_MODEL;
+  const currentModel = getModel(currentModelId);
+  const favorites = getFavoriteModels();
 
   const handleSelect = (modelId) => {
-    switchModel(modelId)
-    setOpen(false)
-  }
+    switchModel(modelId);
+    setOpen(false);
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -28,7 +29,10 @@ export default function ModelSelector() {
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-cream-dark text-[12px] text-ink font-medium border border-border cursor-pointer transition-colors"
       >
         {currentModel?.name || currentModelId}
-        <ChevronDown size={12} className={`text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          size={12}
+          className={`text-ink-muted transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -41,26 +45,32 @@ export default function ModelSelector() {
                 <div className="px-3 py-1.5 text-[10px] text-ink-faint font-medium uppercase tracking-wide">
                   常用模型
                 </div>
-                {favorites.map(model => (
+                {favorites.map((model) => (
                   <button
                     key={model.id}
                     onClick={() => handleSelect(model.id)}
                     className={`w-full flex items-center justify-between px-3 py-2 text-[12px] border-none cursor-pointer transition-colors ${
                       model.id === currentModelId
-                        ? 'bg-cream text-ink'
-                        : 'bg-transparent text-ink-muted hover:bg-cream/50 hover:text-ink'
+                        ? "bg-cream text-ink"
+                        : "bg-transparent text-ink-muted hover:bg-cream/50 hover:text-ink"
                     }`}
                   >
                     <div className="text-left">
                       <div className="font-medium flex items-center gap-1.5">
                         {model.name}
                         {model.badge && (
-                          <span className="text-[9px] px-1.5 py-0.5 bg-cream-dark text-ink-muted rounded-full">{model.badge}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 bg-cream-dark text-ink-muted rounded-full">
+                            {model.badge}
+                          </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-ink-faint mt-0.5">{model.provider}</div>
+                      <div className="text-[11px] text-ink-faint mt-0.5">
+                        {model.provider}
+                      </div>
                     </div>
-                    {model.id === currentModelId && <Check size={12} className="text-ink" />}
+                    {model.id === currentModelId && (
+                      <Check size={12} className="text-ink" />
+                    )}
                   </button>
                 ))}
                 <div className="h-px bg-border mx-2 my-1" />
@@ -79,5 +89,5 @@ export default function ModelSelector() {
         </>
       )}
     </div>
-  )
+  );
 }

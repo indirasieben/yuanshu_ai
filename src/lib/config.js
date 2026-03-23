@@ -1,9 +1,9 @@
 // new-api 后端地址配置
 // 开发环境通过 vite proxy 转发，生产环境直接配置后端地址
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/local";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 // 默认模型
-export const DEFAULT_MODEL = "claude-4-sonnet";
+export const DEFAULT_MODEL = "deepseek/deepseek-v3.2";
 
 // 对话设置默认值
 export const DEFAULT_CONVERSATION_SETTINGS = {

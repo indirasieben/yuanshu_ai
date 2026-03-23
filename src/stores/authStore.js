@@ -1,6 +1,15 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api } from "../lib/api";
+import { useChatStore } from "./chatStore";
+import { useModelStore } from "./modelStore";
+import { useSettingsStore } from "./settingsStore";
+
+const switchStoresToUserScope = (userId) => {
+  useChatStore.getState().switchPersistUser?.(userId);
+  useModelStore.getState().switchPersistUser?.(userId);
+  useSettingsStore.getState().switchPersistUser?.(userId);
+};
 
 export const useAuthStore = create(
   persist(
@@ -21,6 +30,7 @@ export const useAuthStore = create(
             password,
           });
           const basicUser = data.data || {};
+          switchStoresToUserScope(basicUser?.id);
           set({ user: basicUser, isAuthenticated: true, isLoading: false });
           // 登录后获取完整用户信息（user.id 已存入 store，New-Api-User header 可正常携带）
           await get().fetchSelf();
@@ -31,16 +41,28 @@ export const useAuthStore = create(
         }
       },
 
-      register: async (username, password, email) => {
+      /**
+       * 邮箱验证码注册（与 new-api 一致：username + email + password + password2 + verification_code）
+       */
+      register: async ({
+        username,
+        password,
+        password2,
+        email,
+        verification_code,
+        aff_code,
+      }) => {
         set({ isLoading: true });
         try {
           await api.post("/api/user/register", {
             username,
             password,
+            password2,
             email,
+            verification_code,
+            ...(aff_code ? { aff_code } : {}),
           });
           set({ isLoading: false });
-          // 注册成功后自动登录
           return await get().login(username, password);
         } catch (err) {
           set({ isLoading: false });
@@ -52,6 +74,7 @@ export const useAuthStore = create(
         try {
           const data = await api.get("/api/user/self");
           const user = data.data || data;
+          switchStoresToUserScope(user?.id);
           set({ user, isAuthenticated: true });
 
           // 如果还没有 API token，尝试获取或创建一个
@@ -59,6 +82,7 @@ export const useAuthStore = create(
             await get().ensureApiToken();
           }
         } catch {
+          switchStoresToUserScope(null);
           set({ user: null, isAuthenticated: false, sessionToken: "" });
         }
       },
@@ -113,6 +137,7 @@ export const useAuthStore = create(
       },
 
       logout: () => {
+        switchStoresToUserScope(null);
         set({
           user: null,
           sessionToken: "",
@@ -125,10 +150,10 @@ export const useAuthStore = create(
     {
       name: "auth-storage",
       partialize: (state) => ({
-        // sessionToken 已移除：/api/* 认证依赖 session cookie，无需持久化 token 字符串
+        user: state.user,
+        sessionToken: state.sessionToken,
         apiToken: state.apiToken,
         isAuthenticated: state.isAuthenticated,
-        user: state.user,
       }),
     },
   ),

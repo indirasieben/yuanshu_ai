@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './config'
+import { API_BASE_URL } from "./config";
 
 /**
  * SSE 流式输出辅助函数
@@ -7,10 +7,10 @@ import { API_BASE_URL } from './config'
 
 function getRelayToken() {
   try {
-    const auth = JSON.parse(localStorage.getItem('auth-storage') || '{}')
-    return auth?.state?.apiToken || auth?.state?.sessionToken || ''
+    const auth = JSON.parse(localStorage.getItem("auth-storage") || "{}");
+    return auth?.state?.apiToken || auth?.state?.sessionToken || "";
   } catch {
-    return ''
+    return "";
   }
 }
 
@@ -26,95 +26,114 @@ function getRelayToken() {
  * @param {Function} params.onError - 错误回调 (error) => void
  * @param {AbortSignal} params.signal - 取消信号
  */
-export async function streamChat({ messages, model, settings = {}, onChunk, onReasoningChunk, onDone, onError, signal }) {
-  const token = getRelayToken()
+export async function streamChat({
+  messages,
+  model,
+  settings = {},
+  onChunk,
+  onReasoningChunk,
+  onDone,
+  onError,
+  signal,
+}) {
+  const token = getRelayToken();
 
   // 构建消息数组，如果有 systemPrompt 则插入到最前面
-  const apiMessages = []
+  const apiMessages = [];
   if (settings.systemPrompt) {
-    apiMessages.push({ role: 'system', content: settings.systemPrompt })
+    apiMessages.push({ role: "system", content: settings.systemPrompt });
   }
-  apiMessages.push(...messages.map(m => ({ role: m.role, content: m.content })))
+  apiMessages.push(
+    ...messages.map((m) => ({ role: m.role, content: m.content })),
+  );
 
   const body = {
     model,
     messages: apiMessages,
     stream: true,
-  }
+  };
 
-  if (settings.temperature !== undefined) body.temperature = settings.temperature
-  if (settings.topP !== undefined) body.top_p = settings.topP
-  if (settings.maxTokens !== undefined) body.max_tokens = settings.maxTokens
+  if (settings.temperature !== undefined)
+    body.temperature = settings.temperature;
+  if (settings.topP !== undefined) body.top_p = settings.topP;
+  if (settings.maxTokens !== undefined) body.max_tokens = settings.maxTokens;
 
-  let fullText = ''
-  let fullReasoningText = ''
-  let usage = null
+  let fullText = "";
+  let fullReasoningText = "";
+  let usage = null;
 
   try {
     const response = await fetch(`${API_BASE_URL}/v1/chat/completions`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
       signal,
-    })
+    });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const errorMsg = errorData?.error?.message || errorData?.message || `API 请求失败 (${response.status})`
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg =
+        errorData?.error?.message ||
+        errorData?.message ||
+        `API 请求失败 (${response.status})`;
 
       // 余额不足特殊处理
-      if (response.status === 429 || errorMsg.includes('quota') || errorMsg.includes('余额')) {
-        throw new Error('QUOTA_EXCEEDED:' + errorMsg)
+      if (
+        response.status === 429 ||
+        errorMsg.includes("quota") ||
+        errorMsg.includes("余额")
+      ) {
+        throw new Error("QUOTA_EXCEEDED:" + errorMsg);
       }
-      throw new Error(errorMsg)
+      throw new Error(errorMsg);
     }
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
     while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      buffer += decoder.decode(value, { stream: true })
+      buffer += decoder.decode(value, { stream: true });
 
       // 按行解析 SSE
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || '' // 保留最后未完成的行
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // 保留最后未完成的行
 
       for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || trimmed === ':') continue
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === ":") continue;
 
-        if (trimmed === 'data: [DONE]') {
-          onDone?.(fullText, usage, fullReasoningText)
-          return
+        if (trimmed === "data: [DONE]") {
+          onDone?.(fullText, usage, fullReasoningText);
+          return;
         }
 
-        if (trimmed.startsWith('data: ')) {
+        if (trimmed.startsWith("data: ")) {
           try {
-            const json = JSON.parse(trimmed.slice(6))
-            const delta = json.choices?.[0]?.delta
+            const json = JSON.parse(trimmed.slice(6));
+            const delta = json.choices?.[0]?.delta;
 
-            const textChunk = delta?.content
+            const textChunk = delta?.content;
             if (textChunk) {
-              fullText += textChunk
-              onChunk?.(textChunk)
+              fullText += textChunk;
+              onChunk?.(textChunk);
             }
 
-            const reasoningChunk = delta?.reasoning_content
+            const reasoningChunk = delta?.reasoning_content;
             if (reasoningChunk) {
-              fullReasoningText += reasoningChunk
-              onReasoningChunk?.(reasoningChunk)
+              fullReasoningText += reasoningChunk;
+              onReasoningChunk?.(reasoningChunk);
             }
 
             // 有些模型在最后一个 chunk 中返回 usage
             if (json.usage) {
-              usage = json.usage
+              usage = json.usage;
             }
           } catch {
             // JSON 解析失败，忽略这个 chunk
@@ -124,14 +143,14 @@ export async function streamChat({ messages, model, settings = {}, onChunk, onRe
     }
 
     // 流正常结束但没有收到 [DONE]
-    onDone?.(fullText, usage, fullReasoningText)
+    onDone?.(fullText, usage, fullReasoningText);
   } catch (err) {
-    if (err.name === 'AbortError') {
+    if (err.name === "AbortError") {
       // 用户主动取消
-      onDone?.(fullText, usage, fullReasoningText)
-      return
+      onDone?.(fullText, usage, fullReasoningText);
+      return;
     }
-    onError?.(err)
+    onError?.(err);
   }
 }
 
@@ -139,13 +158,13 @@ export async function streamChat({ messages, model, settings = {}, onChunk, onRe
  * 非流式对话请求（用于自动生成标题等辅助功能）
  */
 export async function chatCompletion({ messages, model, maxTokens = 100 }) {
-  const token = getRelayToken()
+  const token = getRelayToken();
 
   const response = await fetch(`${API_BASE_URL}/v1/chat/completions`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       model,
@@ -153,12 +172,12 @@ export async function chatCompletion({ messages, model, maxTokens = 100 }) {
       max_tokens: maxTokens,
       stream: false,
     }),
-  })
+  });
 
   if (!response.ok) {
-    throw new Error(`API 请求失败 (${response.status})`)
+    throw new Error(`API 请求失败 (${response.status})`);
   }
 
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content || ''
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
 }

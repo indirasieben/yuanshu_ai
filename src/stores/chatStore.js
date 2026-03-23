@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { streamChat, chatCompletion } from "../lib/stream";
+import { buildUserScopedStorageKey } from "./persistScope";
 import {
   DEFAULT_MODEL,
   DEFAULT_CONVERSATION_SETTINGS,
@@ -9,6 +10,7 @@ import {
 
 const generateId = () =>
   `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const CHAT_STORAGE_BASE_KEY = "chat-storage";
 
 export const useChatStore = create(
   persist(
@@ -19,6 +21,34 @@ export const useChatStore = create(
       streamingContent: "", // 当前流式传输中的内容
       streamingReasoningContent: "", // 当前流式传输中的思考内容
       abortController: null,
+
+      // 按用户切换持久化命名空间，避免不同账号读取同一份缓存
+      switchPersistUser: (userId) => {
+        const scopedKey = buildUserScopedStorageKey(
+          CHAT_STORAGE_BASE_KEY,
+          userId,
+        );
+        useChatStore.persist.setOptions({
+          name: scopedKey,
+        });
+        const hasScopedState =
+          typeof window !== "undefined" &&
+          window.localStorage.getItem(scopedKey) !== null;
+
+        if (hasScopedState) {
+          useChatStore.persist.rehydrate();
+          return;
+        }
+
+        useChatStore.setState({
+          conversations: [],
+          activeConversationId: null,
+          isStreaming: false,
+          streamingContent: "",
+          streamingReasoningContent: "",
+          abortController: null,
+        });
+      },
 
       // 获取当前对话
       getActiveConversation: () => {
@@ -59,7 +89,7 @@ export const useChatStore = create(
       // 发送消息
       sendMessage: async (text) => {
         const state = get();
-        let { activeConversationId, conversations } = state;
+        let { activeConversationId } = state;
 
         // 如果没有活跃对话，创建一个
         if (!activeConversationId) {
@@ -277,33 +307,28 @@ export const useChatStore = create(
         }));
       },
 
-      // 重新生成最后一条 AI 回复
-      regenerateLastMessage: async () => {
+      // 从指定助手消息起截断并重新生成该条回复（其后消息一并丢弃）
+      regenerateAssistantMessage: async (assistantMessageId) => {
         const conv = get().getActiveConversation();
         if (!conv) return;
 
-        // 找到最后一条 AI 消息并移除
-        const messages = [...conv.messages];
-        while (
-          messages.length > 0 &&
-          messages[messages.length - 1].role === "assistant"
-        ) {
-          messages.pop();
-        }
+        const idx = conv.messages.findIndex(
+          (m) =>
+            m.id === assistantMessageId &&
+            m.role === "assistant" &&
+            !m.error,
+        );
+        if (idx < 0) return;
 
-        // 获取最后一条用户消息
-        const lastUserMsg = messages[messages.length - 1];
-        if (!lastUserMsg || lastUserMsg.role !== "user") return;
+        const messages = conv.messages.slice(0, idx);
+        if (messages.length === 0) return;
 
-        // 更新对话消息（移除旧的 AI 回复）
         set((state) => ({
           conversations: state.conversations.map((c) =>
-            c.id === conv.id ? { ...c, messages } : c,
+            c.id === conv.id ? { ...c, messages, updatedAt: Date.now() } : c,
           ),
         }));
 
-        // 重新发送（sendMessage 会自动添加 AI 回复）
-        // 但我们需要跳过添加用户消息步骤
         const abortController = new AbortController();
         set({
           isStreaming: true,
@@ -312,10 +337,21 @@ export const useChatStore = create(
           abortController,
         });
 
+        const fresh = get().conversations.find((c) => c.id === conv.id);
+        if (!fresh) {
+          set({
+            isStreaming: false,
+            streamingContent: "",
+            streamingReasoningContent: "",
+            abortController: null,
+          });
+          return;
+        }
+
         await streamChat({
           messages,
-          model: conv.model,
-          settings: conv.settings,
+          model: fresh.model,
+          settings: fresh.settings,
           signal: abortController.signal,
           onChunk: (text) => {
             set((state) => ({
@@ -334,7 +370,7 @@ export const useChatStore = create(
               content: fullText,
               reasoningContent: reasoningContent || "",
               timestamp: new Date().toISOString(),
-              model: conv.model,
+              model: fresh.model,
               tokens: usage
                 ? {
                     input: usage.prompt_tokens || 0,
@@ -358,7 +394,7 @@ export const useChatStore = create(
               abortController: null,
             }));
           },
-          onError: (err) => {
+          onError: () => {
             set({
               isStreaming: false,
               streamingContent: "",
@@ -370,7 +406,7 @@ export const useChatStore = create(
       },
     }),
     {
-      name: "chat-storage",
+      name: buildUserScopedStorageKey(CHAT_STORAGE_BASE_KEY, null),
       partialize: (state) => ({
         conversations: state.conversations,
         activeConversationId: state.activeConversationId,
