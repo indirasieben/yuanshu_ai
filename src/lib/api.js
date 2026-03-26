@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "./config";
+import i18n from "../i18n/i18n";
 
 /**
  * 管理 API 客户端 — 调用 new-api 的 /api/* 端点
@@ -44,28 +45,32 @@ export async function apiRequest(endpoint, options = {}) {
     // 未授权，清除登录状态
     localStorage.removeItem("auth-storage");
     window.location.hash = "#/login";
-    throw new Error("登录已过期，请重新登录");
+    throw new Error(i18n.t("登录已过期，请重新登录"));
   }
 
   if (response.status === 429) {
-    throw new Error("请求过于频繁，请稍后再试");
+    throw new Error(i18n.t("请求过于频繁，请稍后再试"));
   }
 
   if (response.status >= 500) {
-    throw new Error("服务器繁忙，请稍后再试");
+    throw new Error(i18n.t("服务器繁忙，请稍后再试"));
   }
 
   const data = await response.json();
 
   if (!response.ok) {
     throw new Error(
-      data?.message || data?.error?.message || `请求失败 (${response.status})`,
+      data?.message ||
+        data?.error?.message ||
+        i18n.t("请求失败 ({{status}})", { status: response.status }),
     );
   }
 
   if (!data.success) {
     throw new Error(
-      data?.message || data?.error?.message || `请求失败 (${response.status})`,
+      data?.message ||
+        data?.error?.message ||
+        i18n.t("请求失败 ({{status}})", { status: response.status }),
     );
   }
 

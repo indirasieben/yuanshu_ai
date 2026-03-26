@@ -1,54 +1,116 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { PanelLeftOpen, Download, Bell, User, LogOut } from 'lucide-react'
-import Sidebar from '../components/chat/Sidebar'
-import ChatArea from '../components/chat/ChatArea'
-import InputArea from '../components/chat/InputArea'
-import EmptyState from '../components/chat/EmptyState'
-import ConversationSettingsModal from '../components/chat/ConversationSettingsModal'
-import SubscriptionModal from '../components/subscription/SubscriptionModal'
-import { useChatStore } from '../stores/chatStore'
-import { useModelStore } from '../stores/modelStore'
-import { useAuthStore } from '../stores/authStore'
-import { exportAsMarkdown } from '../lib/export'
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { PanelLeftOpen, Download, Bell, User, LogOut } from "lucide-react";
+import Sidebar from "../components/chat/Sidebar";
+import ChatArea from "../components/chat/ChatArea";
+import InputArea from "../components/chat/InputArea";
+import EmptyState from "../components/chat/EmptyState";
+import ConversationSettingsModal from "../components/chat/ConversationSettingsModal";
+import SubscriptionModal from "../components/subscription/SubscriptionModal";
+import { useChatStore } from "../stores/chatStore";
+import { useModelStore } from "../stores/modelStore";
+import { useAuthStore } from "../stores/authStore";
+import { useStatusStore } from "../stores/statusStore";
+import { exportAsMarkdown } from "../lib/export";
+import { displayConversationTitle } from "../helpers/conversationTitle";
+import { DEFAULT_CHAT_TITLE_I18N_KEY } from "../lib/config";
+
+const NOTICE_READ_KEYS_STORAGE = "notice_read_keys";
+
+function getKeyForItem(item) {
+  return `${item?.publishDate || ""}-${(item?.content || "").slice(0, 30)}`;
+}
+
+function getAnnouncementsFromStatus(s) {
+  const list = s?.announcements;
+  if (Array.isArray(list)) return list;
+
+  // 兼容：后端字段可能被命名为其他形态
+  const alt =
+    s?.notice?.announcements ||
+    s?.system_notice?.announcements ||
+    s?.systemAnnouncements;
+  return Array.isArray(alt) ? alt : [];
+}
 
 export default function ChatPage() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [showSubscription, setShowSubscription] = useState(false)
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
 
   const {
-    conversations,
-    activeConversationId,
     isStreaming,
     streamingContent,
     streamingReasoningContent,
     getActiveConversation,
     sendMessage,
     cancelStream,
-  } = useChatStore()
+  } = useChatStore();
 
-  const { fetchModels } = useModelStore()
-  const { ensureApiToken, user, logout } = useAuthStore()
+  const { fetchModels } = useModelStore();
+  const { ensureApiToken, user, logout } = useAuthStore();
+  const status = useStatusStore((s) => s.status);
 
-  const activeConversation = getActiveConversation()
-  const messages = activeConversation?.messages || []
-  const showEmpty = !activeConversation || messages.length === 0
+  const unreadNoticeHasUnread = (() => {
+    if (typeof window === "undefined") return false;
+    const announcements = getAnnouncementsFromStatus(status);
+
+    if (announcements.length === 0) return false;
+
+    const raw = window.localStorage.getItem(NOTICE_READ_KEYS_STORAGE);
+    let readKeys = [];
+    try {
+      readKeys = raw ? JSON.parse(raw) : [];
+    } catch {
+      readKeys = [];
+    }
+    const readSet = new Set(Array.isArray(readKeys) ? readKeys : []);
+
+    return announcements.some((it) => !readSet.has(getKeyForItem(it)));
+  })();
+
+  const activeConversation = getActiveConversation();
+  const messages = activeConversation?.messages || [];
+  const showEmpty = !activeConversation || messages.length === 0;
 
   // 初始化：刷新模型列表 & 确保有 API token
   useEffect(() => {
-    ensureApiToken()
-    fetchModels()
-  }, [])
+    ensureApiToken();
+    fetchModels();
+  }, [ensureApiToken, fetchModels]);
 
-  const handleSend = (text) => {
-    sendMessage(text)
-  }
+  const handleSend = (text, options) => {
+    sendMessage(text, options);
+  };
 
   const handleExport = () => {
-    exportAsMarkdown(activeConversation)
-  }
+    exportAsMarkdown(activeConversation);
+  };
+
+  const markNoticesAsReadAndNavigate = () => {
+    if (typeof window === "undefined") return;
+    const announcements = getAnnouncementsFromStatus(status);
+
+    const raw = window.localStorage.getItem(NOTICE_READ_KEYS_STORAGE);
+    let readKeys = [];
+    try {
+      readKeys = raw ? JSON.parse(raw) : [];
+    } catch {
+      readKeys = [];
+    }
+    const readSet = new Set(Array.isArray(readKeys) ? readKeys : []);
+    announcements.forEach((it) => readSet.add(getKeyForItem(it)));
+    window.localStorage.setItem(
+      NOTICE_READ_KEYS_STORAGE,
+      JSON.stringify(Array.from(readSet)),
+    );
+
+    navigate("/account/notifications");
+  };
 
   return (
     <div className="flex h-screen bg-cream overflow-hidden">
@@ -69,7 +131,9 @@ export default function ChatPage() {
               </button>
             )}
             <h1 className="text-[13px] font-medium text-ink truncate">
-              {activeConversation?.title || '新对话'}
+              {displayConversationTitle(
+                activeConversation?.title || DEFAULT_CHAT_TITLE_I18N_KEY,
+              )}
             </h1>
           </div>
           <div className="flex items-center gap-1">
@@ -79,7 +143,7 @@ export default function ChatPage() {
               className="flex items-center gap-1 px-2.5 py-1 text-[11px] text-ink-muted hover:text-ink hover:bg-cream-dark rounded-md bg-transparent border-none cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Download size={12} />
-              导出
+              {t("导出")}
             </button>
 
             <div className="w-px h-4 bg-border mx-1" />
@@ -87,10 +151,13 @@ export default function ChatPage() {
             {/* 通知图标 */}
             <button
               className="relative p-1.5 text-ink-muted hover:text-ink hover:bg-cream-dark rounded-md bg-transparent border-none cursor-pointer transition-colors"
-              title="通知中心"
-              onClick={() => window.location.hash = '#/account/notifications'}
+              title={t("通知中心")}
+              onClick={markNoticesAsReadAndNavigate}
             >
               <Bell size={14} />
+              {unreadNoticeHasUnread && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500" />
+              )}
             </button>
 
             {/* 用户头像下拉 */}
@@ -99,11 +166,14 @@ export default function ChatPage() {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="w-7 h-7 rounded-full bg-ink text-cream-light flex items-center justify-center text-[11px] font-medium cursor-pointer border-none"
               >
-                {(user?.display_name || user?.username || 'U')[0].toUpperCase()}
+                {(user?.display_name || user?.username || "U")[0].toUpperCase()}
               </button>
               {userMenuOpen && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setUserMenuOpen(false)}
+                  />
                   <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-border rounded-xl shadow-lg z-20 py-1">
                     <Link
                       to="/account"
@@ -111,15 +181,18 @@ export default function ChatPage() {
                       className="flex items-center gap-2 px-4 py-2 text-[12px] text-ink hover:bg-cream no-underline transition-colors"
                     >
                       <User size={13} />
-                      账号管理
+                      {t("账号管理")}
                     </Link>
                     <div className="h-px bg-border mx-2 my-1" />
                     <button
-                      onClick={() => { logout(); setUserMenuOpen(false) }}
+                      onClick={() => {
+                        logout();
+                        setUserMenuOpen(false);
+                      }}
                       className="w-full flex items-center gap-2 px-4 py-2 text-[12px] text-red-600 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors"
                     >
                       <LogOut size={13} />
-                      退出登录
+                      {t("退出登录")}
                     </button>
                   </div>
                 </>
@@ -160,5 +233,5 @@ export default function ChatPage() {
         <SubscriptionModal onClose={() => setShowSubscription(false)} />
       )}
     </div>
-  )
+  );
 }

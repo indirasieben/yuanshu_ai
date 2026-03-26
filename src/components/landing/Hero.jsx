@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 export default function Hero() {
+  const { t } = useTranslation()
   return (
     <section className="relative">
       <div className="max-w-4xl mx-auto px-6 lg:px-8 pt-24 pb-28 lg:pt-36 lg:pb-40 text-center">
@@ -36,8 +38,9 @@ export default function Hero() {
 
         {/* Main title - editorial serif */}
         <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-medium text-ink leading-tight mb-8 tracking-tight">
-          与你共同思考的<br />
-          <em className="not-italic">AI 平台</em>
+          {t('与你共同思考的')}
+          <br />
+          <em className="not-italic">{t('AI 平台')}</em>
         </h1>
 
         {/* CTA button - black pill like OpenNote */}
@@ -45,7 +48,7 @@ export default function Hero() {
           to="/chat"
           className="inline-block px-8 py-3.5 bg-ink text-white text-sm font-medium rounded-full hover:bg-ink-light transition-colors no-underline"
         >
-          免费开始
+          {t('免费开始')}
         </Link>
       </div>
     </section>

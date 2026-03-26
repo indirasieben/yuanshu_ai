@@ -8,8 +8,10 @@ export const DEFAULT_MODEL = "deepseek/deepseek-v3.2";
 // 对话设置默认值
 export const DEFAULT_CONVERSATION_SETTINGS = {
   systemPrompt: "",
-  temperature: 0.7,
-  topP: 0.9,
+  enableTemperature: false,
+  temperature: 1,
+  enableTopP: false,
+  topP: 1,
   maxTokens: 4096,
 };
 
@@ -18,3 +20,6 @@ export const MAX_MESSAGES_PER_CONVERSATION = 200;
 
 // 每个用户最大对话数
 export const MAX_CONVERSATIONS = 100;
+
+/** 持久化中表示「未命名对话」的 i18n 键（展示时用 t()） */
+export const DEFAULT_CHAT_TITLE_I18N_KEY = "新对话";

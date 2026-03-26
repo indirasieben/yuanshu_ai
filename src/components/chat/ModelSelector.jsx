@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useModelStore } from "../../stores/modelStore";
@@ -6,10 +7,11 @@ import { useChatStore } from "../../stores/chatStore";
 import { DEFAULT_MODEL } from "../../lib/config";
 
 export default function ModelSelector() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
-  const { getFavoriteModels, getModel, allModels } = useModelStore();
+  const { getFavoriteModels, getModel } = useModelStore();
   const { getActiveConversation, switchModel } = useChatStore();
 
   const activeConversation = getActiveConversation();
@@ -43,7 +45,7 @@ export default function ModelSelector() {
             {favorites.length > 0 && (
               <>
                 <div className="px-3 py-1.5 text-[10px] text-ink-faint font-medium uppercase tracking-wide">
-                  常用模型
+                  {t("常用模型")}
                 </div>
                 {favorites.map((model) => (
                   <button
@@ -83,7 +85,7 @@ export default function ModelSelector() {
               onClick={() => setOpen(false)}
               className="block px-3 py-2 text-[11px] text-accent hover:bg-cream/50 no-underline text-center font-medium"
             >
-              从模型列表添加 →
+              {t("从模型列表添加 →")}
             </Link>
           </div>
         </>

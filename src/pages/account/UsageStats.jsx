@@ -15,21 +15,19 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../stores/authStore";
+import { useStatusStore } from "../../stores/statusStore";
 import { api } from "../../lib/api";
 import toast from "react-hot-toast";
+import { renderQuota } from "../../helpers";
 
 // ────────────────────────────────────────────────────────────
 // 工具函数
 // ────────────────────────────────────────────────────────────
-function formatQuota(v, digits = 2) {
+function formatNum(v, localeTag = "zh-CN") {
   if (v == null) return "--";
-  return `$${(v / 500000).toFixed(digits)}`;
-}
-
-function formatNum(v) {
-  if (v == null) return "--";
-  return Number(v).toLocaleString("zh-CN");
+  return Number(v).toLocaleString(localeTag);
 }
 
 function toDatetimeLocal(date) {
@@ -48,15 +46,6 @@ function defaultStart() {
 
 function defaultEnd() {
   return toDatetimeLocal(new Date(Date.now() + 3600 * 1000));
-}
-
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 6) return "凌晨好";
-  if (h < 12) return "早上好";
-  if (h < 14) return "中午好";
-  if (h < 18) return "下午好";
-  return "晚上好";
 }
 
 // 由模型名哈希生成固定颜色
@@ -151,6 +140,7 @@ function StatCard({ label, value, sub, accent }) {
 // SearchModal 弹窗
 // ────────────────────────────────────────────────────────────
 function SearchModal({ params, onConfirm, onClose }) {
+  const { t } = useTranslation();
   const [local, setLocal] = useState({ ...params });
 
   useEffect(() => {
@@ -165,7 +155,7 @@ function SearchModal({ params, onConfirm, onClose }) {
     const startSec = toUnixSec(local.startTime);
     const endSec = toUnixSec(local.endTime);
     if (endSec - startSec > 2592000) {
-      toast.error("查询时间跨度不能超过 1 个月");
+      toast.error(t("查询时间跨度不能超过 1 个月"));
       return;
     }
     onConfirm(local);
@@ -185,12 +175,12 @@ function SearchModal({ params, onConfirm, onClose }) {
         >
           <X size={16} />
         </button>
-        <p className="text-sm font-medium text-ink mb-4">搜索条件</p>
+        <p className="text-sm font-medium text-ink mb-4">{t("搜索条件")}</p>
 
         <div className="space-y-3">
           <div>
             <label className="block text-xs text-ink-muted mb-1">
-              起始时间
+              {t("起始时间")}
             </label>
             <input
               type="datetime-local"
@@ -203,7 +193,7 @@ function SearchModal({ params, onConfirm, onClose }) {
           </div>
           <div>
             <label className="block text-xs text-ink-muted mb-1">
-              结束时间
+              {t("结束时间")}
             </label>
             <input
               type="datetime-local"
@@ -216,7 +206,7 @@ function SearchModal({ params, onConfirm, onClose }) {
           </div>
           <div>
             <label className="block text-xs text-ink-muted mb-1">
-              时间粒度
+              {t("时间粒度")}
             </label>
             <select
               value={local.grain}
@@ -225,9 +215,9 @@ function SearchModal({ params, onConfirm, onClose }) {
               }
               className="w-full px-3 py-2 rounded-lg border border-border bg-cream-light text-ink text-xs outline-none cursor-pointer"
             >
-              <option value="hour">按小时</option>
-              <option value="day">按天</option>
-              <option value="week">按周</option>
+              <option value="hour">{t("按小时")}</option>
+              <option value="day">{t("按天")}</option>
+              <option value="week">{t("按周")}</option>
             </select>
           </div>
         </div>
@@ -237,13 +227,13 @@ function SearchModal({ params, onConfirm, onClose }) {
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-border bg-cream-light text-ink text-xs cursor-pointer hover:bg-cream-dark transition-colors"
           >
-            取消
+            {t("取消")}
           </button>
           <button
             onClick={handleConfirm}
             className="px-4 py-2 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer hover:bg-ink-light transition-colors"
           >
-            确定
+            {t("确定")}
           </button>
         </div>
       </div>
@@ -255,12 +245,13 @@ function SearchModal({ params, onConfirm, onClose }) {
 // API 信息面板
 // ────────────────────────────────────────────────────────────
 function ApiInfoPanel({ apiInfoList }) {
+  const { t } = useTranslation();
   const handleCopy = async (url) => {
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("链接已复制");
+      toast.success(t("链接已复制"));
     } catch {
-      /* noop */
+      void 0;
     }
   };
 
@@ -271,7 +262,7 @@ function ApiInfoPanel({ apiInfoList }) {
       className="bg-card rounded-xl border border-border p-4 overflow-y-auto"
       style={{ maxHeight: 480 }}
     >
-      <p className="text-xs font-medium text-ink mb-3">API 信息</p>
+      <p className="text-xs font-medium text-ink mb-3">{t("API 信息")}</p>
       <div className="space-y-3">
         {apiInfoList.map((item) => (
           <div
@@ -305,7 +296,7 @@ function ApiInfoPanel({ apiInfoList }) {
                   className="flex items-center gap-1 text-[11px] text-ink-muted hover:text-ink no-underline transition-colors"
                 >
                   <ExternalLink size={10} />
-                  测速
+                  {t("测速")}
                 </a>
                 <a
                   href={item.url}
@@ -314,14 +305,15 @@ function ApiInfoPanel({ apiInfoList }) {
                   className="flex items-center gap-1 text-[11px] text-ink-muted hover:text-ink no-underline transition-colors"
                 >
                   <ExternalLink size={10} />
-                  跳转
+                  {t("跳转")}
                 </a>
                 <button
+                  type="button"
                   onClick={() => handleCopy(item.url)}
                   className="flex items-center gap-1 text-[11px] text-ink-muted hover:text-ink cursor-pointer transition-colors"
                 >
                   <Copy size={10} />
-                  复制
+                  {t("复制")}
                 </button>
               </div>
             </div>
@@ -336,6 +328,13 @@ function ApiInfoPanel({ apiInfoList }) {
 // 自定义 Tooltip（图表悬浮提示）
 // ────────────────────────────────────────────────────────────
 function ChartTooltip({ active, payload, label, mode }) {
+  const { i18n } = useTranslation();
+  const localeTag =
+    i18n.language === "en"
+      ? "en-US"
+      : i18n.language === "zh-TW"
+        ? "zh-TW"
+        : "zh-CN";
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-card border border-border rounded-xl px-3 py-2 shadow-sm text-xs">
@@ -348,7 +347,9 @@ function ChartTooltip({ active, payload, label, mode }) {
           />
           <span className="text-ink-muted">{p.name}：</span>
           <span className="text-ink font-medium">
-            {mode === "quota" ? formatQuota(p.value, 4) : formatNum(p.value)}
+            {mode === "quota"
+              ? renderQuota(p.value)
+              : formatNum(p.value, localeTag)}
           </span>
         </div>
       ))}
@@ -360,9 +361,15 @@ function ChartTooltip({ active, payload, label, mode }) {
 // 图表区
 // ────────────────────────────────────────────────────────────
 function ChartsPanel({ rawData, params }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(0);
 
-  const TABS = ["消耗分布", "消耗趋势", "调用次数分布", "调用次数排行"];
+  const TABS = [
+    t("消耗分布"),
+    t("消耗趋势"),
+    t("调用次数分布"),
+    t("调用次数排行"),
+  ];
 
   // 聚合处理
   const { buckets, models, timeLabels, timeKeys } = useMemo(() => {
@@ -414,7 +421,7 @@ function ChartsPanel({ rawData, params }) {
 
   const renderEmpty = () => (
     <div className="flex items-center justify-center h-64 text-sm text-ink-muted">
-      <p>暂无数据，请调整时间范围后重新查询</p>
+      <p>{t("暂无数据，请调整时间范围后重新查询")}</p>
     </div>
   );
 
@@ -422,9 +429,10 @@ function ChartsPanel({ rawData, params }) {
     <div className="bg-card rounded-xl border border-border p-4">
       {/* Tab 切换 */}
       <div className="flex gap-1 mb-4 p-1 bg-cream-light rounded-lg w-fit">
-        {TABS.map((t, i) => (
+        {TABS.map((tabLabel, i) => (
           <button
-            key={t}
+            key={i}
+            type="button"
             onClick={() => setActiveTab(i)}
             className={`px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors ${
               activeTab === i
@@ -432,7 +440,7 @@ function ChartsPanel({ rawData, params }) {
                 : "text-ink-muted hover:text-ink"
             }`}
           >
-            {t}
+            {tabLabel}
           </button>
         ))}
       </div>
@@ -462,7 +470,7 @@ function ChartsPanel({ rawData, params }) {
                 tick={{ fontSize: 10, fill: "#9A9188" }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v) => `$${(v / 500000).toFixed(3)}`}
+                tickFormatter={(v) => `${renderQuota(v)}`}
                 width={64}
               />
               <Tooltip content={<ChartTooltip mode="quota" />} />
@@ -506,7 +514,7 @@ function ChartsPanel({ rawData, params }) {
                 tick={{ fontSize: 10, fill: "#9A9188" }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v) => `$${(v / 500000).toFixed(3)}`}
+                tickFormatter={(v) => `${renderQuota(v)}`}
                 width={64}
               />
               <Tooltip content={<ChartTooltip mode="quota" />} />
@@ -551,7 +559,7 @@ function ChartsPanel({ rawData, params }) {
                   <Cell key={entry.name} fill={modelColor(entry.name, i)} />
                 ))}
               </Pie>
-              <Tooltip formatter={(v) => [formatNum(v), "调用次数"]} />
+              <Tooltip formatter={(v) => [formatNum(v), t("调用次数")]} />
               <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -591,8 +599,8 @@ function ChartsPanel({ rawData, params }) {
                 axisLine={false}
                 width={90}
               />
-              <Tooltip formatter={(v) => [formatNum(v), "调用次数"]} />
-              <Bar dataKey="value" name="调用次数" radius={[0, 3, 3, 0]}>
+              <Tooltip formatter={(v) => [formatNum(v), t("调用次数")]} />
+              <Bar dataKey="value" name={t("调用次数")} radius={[0, 3, 3, 0]}>
                 {rankData.map((entry, i) => (
                   <Cell key={entry.name} fill={modelColor(entry.name, i)} />
                 ))}
@@ -608,7 +616,24 @@ function ChartsPanel({ rawData, params }) {
 // 主组件
 // ────────────────────────────────────────────────────────────
 export default function UsageStats() {
+  const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
+  const status = useStatusStore((s) => s.status);
+  const localeTag =
+    i18n.language === "en"
+      ? "en-US"
+      : i18n.language === "zh-TW"
+        ? "zh-TW"
+        : "zh-CN";
+
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 6) return t("凌晨好");
+    if (h < 12) return t("早上好");
+    if (h < 14) return t("中午好");
+    if (h < 18) return t("下午好");
+    return t("晚上好");
+  })();
 
   // 搜索参数
   const [params, setParams] = useState(() => {
@@ -625,8 +650,8 @@ export default function UsageStats() {
   const [loading, setLoading] = useState(false);
 
   // 系统状态（API 信息）
-  const [apiInfoEnabled, setApiInfoEnabled] = useState(false);
-  const [apiInfoList, setApiInfoList] = useState([]);
+  const apiInfoEnabled = !!status?.api_info_enabled;
+  const apiInfoList = Array.isArray(status?.api_info) ? status.api_info : [];
 
   // 弹窗
   const [showSearch, setShowSearch] = useState(false);
@@ -650,22 +675,7 @@ export default function UsageStats() {
     }
   }, []);
 
-  // ── 拉取系统状态 ──────────────────────────────────────────
-  const fetchStatus = useCallback(async () => {
-    try {
-      const data = await api.get("/api/status");
-      setApiInfoEnabled(
-        !!(data?.data?.api_info_enabled || data?.api_info_enabled),
-      );
-      const list = data?.data?.api_info || data?.api_info || [];
-      setApiInfoList(Array.isArray(list) ? list : []);
-    } catch {
-      /* noop */
-    }
-  }, []);
-
   useEffect(() => {
-    fetchStatus();
     fetchChartData(params);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -707,15 +717,15 @@ export default function UsageStats() {
       {/* ── 页面头部 ── */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <p className="text-xs text-ink-muted">{getGreeting()}，</p>
+          <p className="text-xs text-ink-muted">{greeting}，</p>
           <h2 className="text-base font-medium text-ink">
-            {user?.display_name || user?.username || "用户"}
+            {user?.display_name || user?.username || t("用户")}
           </h2>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowSearch(true)}
-            title="搜索条件"
+            title={t("搜索条件")}
             className="w-8 h-8 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center cursor-pointer transition-colors border-none"
           >
             <Search size={14} />
@@ -723,7 +733,7 @@ export default function UsageStats() {
           <button
             onClick={handleRefresh}
             disabled={loading}
-            title="刷新"
+            title={t("刷新")}
             className="w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center cursor-pointer transition-colors border-none disabled:opacity-60"
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -742,54 +752,54 @@ export default function UsageStats() {
         <div className="grid grid-cols-2 gap-3 mb-5">
           {/* 账户数据 */}
           <StatCard
-            label="当前余额"
-            value={formatQuota(user?.quota)}
-            sub="账户数据"
+            label={t("当前余额")}
+            value={renderQuota(user?.quota)}
+            sub={t("账户数据")}
             accent="bg-blue-50/60"
           />
           <StatCard
-            label="历史消耗"
-            value={formatQuota(user?.used_quota)}
-            sub="账户数据"
+            label={t("历史消耗")}
+            value={renderQuota(user?.used_quota)}
+            sub={t("账户数据")}
             accent="bg-blue-50/60"
           />
           {/* 使用统计 */}
           <StatCard
-            label="历史请求次数"
-            value={formatNum(user?.request_count)}
-            sub="使用统计"
+            label={t("历史请求次数")}
+            value={formatNum(user?.request_count, localeTag)}
+            sub={t("使用统计")}
             accent="bg-green-50/60"
           />
           <StatCard
-            label="时间范围调用次数"
-            value={formatNum(totalCount)}
-            sub="使用统计"
+            label={t("时间范围调用次数")}
+            value={formatNum(totalCount, localeTag)}
+            sub={t("使用统计")}
             accent="bg-green-50/60"
           />
           {/* 资源消耗 */}
           <StatCard
-            label="时间范围统计额度"
-            value={formatQuota(totalQuota, 4)}
-            sub="资源消耗"
+            label={t("时间范围统计额度")}
+            value={renderQuota(totalQuota)}
+            sub={t("资源消耗")}
             accent="bg-amber-50/60"
           />
           <StatCard
-            label="时间范围统计 Tokens"
-            value={formatNum(totalTokens)}
-            sub="资源消耗"
+            label={t("时间范围统计 Tokens")}
+            value={formatNum(totalTokens, localeTag)}
+            sub={t("资源消耗")}
             accent="bg-amber-50/60"
           />
           {/* 性能指标 */}
           <StatCard
-            label="平均 RPM"
+            label={t("平均 RPM")}
             value={avgRpm}
-            sub="性能指标（当前时间范围）"
+            sub={t("性能指标（当前时间范围）")}
             accent="bg-indigo-50/60"
           />
           <StatCard
-            label="平均 TPM"
+            label={t("平均 TPM")}
             value={avgTpm}
-            sub="性能指标（当前时间范围）"
+            sub={t("性能指标（当前时间范围）")}
             accent="bg-indigo-50/60"
           />
         </div>
@@ -810,7 +820,7 @@ export default function UsageStats() {
             <div className="bg-card rounded-xl border border-border p-4 flex items-center justify-center h-64">
               <div className="flex flex-col items-center gap-2 text-ink-muted">
                 <div className="w-5 h-5 border-2 border-ink-faint border-t-ink rounded-full animate-spin" />
-                <p className="text-xs">图表加载中...</p>
+                <p className="text-xs">{t("图表加载中...")}</p>
               </div>
             </div>
           ) : (

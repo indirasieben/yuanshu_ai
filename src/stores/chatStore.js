@@ -6,7 +6,9 @@ import {
   DEFAULT_MODEL,
   DEFAULT_CONVERSATION_SETTINGS,
   MAX_CONVERSATIONS,
+  DEFAULT_CHAT_TITLE_I18N_KEY,
 } from "../lib/config";
+import i18n from "../i18n/i18n";
 
 const generateId = () =>
   `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -61,7 +63,7 @@ export const useChatStore = create(
         const id = generateId();
         const conversation = {
           id,
-          title: "新对话",
+          title: DEFAULT_CHAT_TITLE_I18N_KEY,
           messages: [],
           model: model || DEFAULT_MODEL,
           settings: { ...DEFAULT_CONVERSATION_SETTINGS },
@@ -86,8 +88,8 @@ export const useChatStore = create(
         set({ activeConversationId: id, streamingContent: "" });
       },
 
-      // 发送消息
-      sendMessage: async (text) => {
+      // 发送消息；sendOptions 可含 reasoning_effort 等透传 API 的字段
+      sendMessage: async (text, sendOptions = {}) => {
         const state = get();
         let { activeConversationId } = state;
 
@@ -139,6 +141,7 @@ export const useChatStore = create(
           messages: messagesForApi,
           model: updatedConv.model,
           settings: updatedConv.settings,
+          reasoning_effort: sendOptions?.reasoning_effort,
           signal: abortController.signal,
           onChunk: (text) => {
             set((state) => ({
@@ -186,7 +189,11 @@ export const useChatStore = create(
             const conv = get().conversations.find(
               (c) => c.id === activeConversationId,
             );
-            if (conv && conv.messages.length === 2 && conv.title === "新对话") {
+            if (
+              conv &&
+              conv.messages.length === 2 &&
+              conv.title === DEFAULT_CHAT_TITLE_I18N_KEY
+            ) {
               get().autoGenerateTitle(activeConversationId);
             }
           },
@@ -245,8 +252,9 @@ export const useChatStore = create(
               },
               {
                 role: "user",
-                content:
+                content: i18n.t(
                   "请用5-10个中文字概括这段对话的主题，只输出标题，不要标点符号",
+                ),
               },
             ],
             maxTokens: 30,
@@ -269,6 +277,15 @@ export const useChatStore = create(
         set((state) => ({
           conversations: state.conversations.map((c) =>
             c.id === id ? { ...c, title } : c,
+          ),
+        }));
+      },
+
+      // 清空对话消息
+      clearConversationMessages: (id) => {
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === id ? { ...c, messages: [] } : c,
           ),
         }));
       },
@@ -314,9 +331,7 @@ export const useChatStore = create(
 
         const idx = conv.messages.findIndex(
           (m) =>
-            m.id === assistantMessageId &&
-            m.role === "assistant" &&
-            !m.error,
+            m.id === assistantMessageId && m.role === "assistant" && !m.error,
         );
         if (idx < 0) return;
 

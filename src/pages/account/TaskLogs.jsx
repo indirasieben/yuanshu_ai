@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, RotateCcw, ChevronLeft, ChevronRight, ListTodo, X, Copy, ExternalLink } from 'lucide-react'
 import { api } from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -8,10 +9,10 @@ import toast from 'react-hot-toast'
 // ────────────────────────────────────────────────────────────
 
 // Unix 秒 → 可读时间字符串
-function formatTime(ts) {
+function formatTime(ts, localeTag = 'zh-CN') {
   if (!ts) return '—'
   const d = new Date(ts * 1000)
-  return d.toLocaleString('zh-CN', {
+  return d.toLocaleString(localeTag, {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
     hour12: false,
@@ -40,16 +41,16 @@ function toDatetimeLocal(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-// 任务状态枚举
+// 任务状态枚举（labelKey 与 zh-CN 词条一致，展示时 t(labelKey)）
 const STATUS_MAP = {
-  SUCCESS:     { label: '成功',   color: 'bg-green-100 text-green-700' },
-  FAILURE:     { label: '失败',   color: 'bg-red-100 text-red-700' },
-  IN_PROGRESS: { label: '执行中', color: 'bg-blue-100 text-blue-700' },
-  SUBMITTED:   { label: '队列中', color: 'bg-yellow-100 text-yellow-700' },
-  QUEUED:      { label: '排队中', color: 'bg-orange-100 text-orange-700' },
-  NOT_START:   { label: '未启动', color: 'bg-gray-100 text-gray-500' },
-  UNKNOWN:     { label: '未知',   color: 'bg-gray-100 text-gray-400' },
-  '':          { label: '提交中', color: 'bg-gray-100 text-gray-500' },
+  SUCCESS:     { labelKey: '成功',   color: 'bg-green-100 text-green-700' },
+  FAILURE:     { labelKey: '失败',   color: 'bg-red-100 text-red-700' },
+  IN_PROGRESS: { labelKey: '执行中', color: 'bg-blue-100 text-blue-700' },
+  SUBMITTED:   { labelKey: '队列中', color: 'bg-yellow-100 text-yellow-700' },
+  QUEUED:      { labelKey: '排队中', color: 'bg-orange-100 text-orange-700' },
+  NOT_START:   { labelKey: '未启动', color: 'bg-gray-100 text-gray-500' },
+  UNKNOWN:     { labelKey: '未知',   color: 'bg-gray-100 text-gray-400' },
+  '':          { labelKey: '提交中', color: 'bg-gray-100 text-gray-500' },
 }
 
 function getStatusInfo(status) {
@@ -116,24 +117,26 @@ function Modal({ onClose, children, maxWidth = 'max-w-2xl' }) {
 // 弹窗：JSON 文本详情
 // ────────────────────────────────────────────────────────────
 function JsonModal({ content, onClose }) {
+  const { t } = useTranslation()
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(content)
-      toast.success('已复制')
-    } catch { /* noop */ }
+      toast.success(t('已复制'))
+    } catch { void 0 }
   }
 
   return (
     <Modal onClose={onClose}>
       <div className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-ink">任务详情</span>
+          <span className="text-sm font-medium text-ink">{t('任务详情')}</span>
           <button
+            type="button"
             onClick={handleCopy}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-cream-light text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer mr-7"
           >
             <Copy size={12} />
-            复制
+            {t('复制')}
           </button>
         </div>
         <pre className="text-xs text-ink font-mono bg-cream-light rounded-lg border border-border p-4 overflow-auto max-h-96 whitespace-pre-wrap break-all leading-relaxed">
@@ -148,29 +151,31 @@ function JsonModal({ content, onClose }) {
 // 弹窗：视频预览
 // ────────────────────────────────────────────────────────────
 function VideoModal({ url, onClose }) {
+  const { t } = useTranslation()
   const [error, setError] = useState(false)
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(url)
-      toast.success('链接已复制')
-    } catch { /* noop */ }
+      toast.success(t('链接已复制'))
+    } catch { void 0 }
   }
 
   return (
     <Modal onClose={onClose} maxWidth="max-w-4xl">
       <div className="p-5">
-        <p className="text-sm font-medium text-ink mb-3">视频预览</p>
+        <p className="text-sm font-medium text-ink mb-3">{t('视频预览')}</p>
         {error ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3 text-ink-muted text-sm">
-            <p>视频无法加载（可能受跨域或防盗链限制）</p>
+            <p>{t('视频无法加载（可能受跨域或防盗链限制）')}</p>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-cream-light text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer"
               >
                 <Copy size={12} />
-                复制链接
+                {t('复制链接')}
               </button>
               <a
                 href={url}
@@ -179,7 +184,7 @@ function VideoModal({ url, onClose }) {
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-cream-light text-xs text-ink-muted hover:text-ink transition-colors no-underline"
               >
                 <ExternalLink size={12} />
-                在新标签页中打开
+                {t('在新标签页中打开')}
               </a>
             </div>
           </div>
@@ -201,9 +206,10 @@ function VideoModal({ url, onClose }) {
 // 弹窗：音乐预览（Suno 专用）
 // ────────────────────────────────────────────────────────────
 function AudioClipCard({ clip }) {
+  const { t } = useTranslation()
   const [audioError, setAudioError] = useState(false)
   const audioUrl = clip.audio_url || clip.url || ''
-  const title = clip.title || clip.metadata?.title || '未命名'
+  const title = clip.title || clip.metadata?.title || t('未命名')
   const tags = clip.tags || clip.metadata?.tags || ''
   const imageUrl = clip.image_url || clip.metadata?.image_url || ''
   const duration = clip.metadata?.duration
@@ -211,8 +217,8 @@ function AudioClipCard({ clip }) {
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(audioUrl)
-      toast.success('链接已复制')
-    } catch { /* noop */ }
+      toast.success(t('链接已复制'))
+    } catch { void 0 }
   }
 
   return (
@@ -239,12 +245,12 @@ function AudioClipCard({ clip }) {
         )}
         {audioError ? (
           <div className="flex gap-2 items-center mt-2">
-            <span className="text-xs text-ink-muted">音频无法播放</span>
-            <button onClick={handleCopy} className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink cursor-pointer">
-              <Copy size={10} /> 复制链接
+            <span className="text-xs text-ink-muted">{t('音频无法播放')}</span>
+            <button type="button" onClick={handleCopy} className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink cursor-pointer">
+              <Copy size={10} /> {t('复制链接')}
             </button>
             <a href={audioUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink no-underline">
-              <ExternalLink size={10} /> 新标签页
+              <ExternalLink size={10} /> {t('新标签页')}
             </a>
           </div>
         ) : (
@@ -261,18 +267,19 @@ function AudioClipCard({ clip }) {
 }
 
 function AudioModal({ data, onClose }) {
+  const { t } = useTranslation()
   let clips = []
   try {
     clips = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data) : [])
-  } catch { /* noop */ }
+  } catch { void 0 }
 
   return (
     <Modal onClose={onClose} maxWidth="max-w-lg">
       <div className="p-5">
-        <p className="text-sm font-medium text-ink mb-4">音乐预览</p>
+        <p className="text-sm font-medium text-ink mb-4">{t('音乐预览')}</p>
         <div className="space-y-3 overflow-y-auto" style={{ maxHeight: '70vh' }}>
           {clips.length === 0 ? (
-            <p className="text-sm text-ink-muted text-center py-8">暂无音频内容</p>
+            <p className="text-sm text-ink-muted text-center py-8">{t('暂无音频内容')}</p>
           ) : (
             clips.map((clip, i) => <AudioClipCard key={i} clip={clip} />)
           )}
@@ -286,6 +293,9 @@ function AudioModal({ data, onClose }) {
 // 主组件：任务日志
 // ────────────────────────────────────────────────────────────
 export default function TaskLogs() {
+  const { t, i18n } = useTranslation()
+  const localeTag = i18n.language === 'en' ? 'en-US' : i18n.language === 'zh-TW' ? 'zh-TW' : 'zh-CN'
+
   // 筛选条件
   const [filters, setFilters] = useState({
     startTime: todayStart(),
@@ -383,20 +393,22 @@ export default function TaskLogs() {
     if (hasSunoAudio) {
       return (
         <button
+          type="button"
           onClick={() => setAudioModal(dataArr)}
           className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer underline underline-offset-2 whitespace-nowrap"
         >
-          预览音乐
+          {t('预览音乐')}
         </button>
       )
     }
     if (hasVideo) {
       return (
         <button
+          type="button"
           onClick={() => setVideoModal(task.result_url)}
           className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer underline underline-offset-2 whitespace-nowrap"
         >
-          预览视频
+          {t('预览视频')}
         </button>
       )
     }
@@ -430,7 +442,7 @@ export default function TaskLogs() {
     <div>
       <div className="flex items-center gap-2 mb-5">
         <ListTodo size={16} className="text-orange-500" />
-        <h2 className="text-base font-medium text-ink">任务日志</h2>
+        <h2 className="text-base font-medium text-ink">{t('任务日志')}</h2>
       </div>
 
       {/* ── 筛选区 ── */}
@@ -438,7 +450,7 @@ export default function TaskLogs() {
         {/* 时间范围 */}
         <div className="flex gap-2 items-center flex-wrap">
           <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
-            <label className="text-xs text-ink-muted shrink-0">开始时间</label>
+            <label className="text-xs text-ink-muted shrink-0">{t('开始时间')}</label>
             <input
               type="datetime-local"
               value={filters.startTime}
@@ -448,7 +460,7 @@ export default function TaskLogs() {
           </div>
           <span className="text-ink-muted text-xs">—</span>
           <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
-            <label className="text-xs text-ink-muted shrink-0">结束时间</label>
+            <label className="text-xs text-ink-muted shrink-0">{t('结束时间')}</label>
             <input
               type="datetime-local"
               value={filters.endTime}
@@ -462,7 +474,7 @@ export default function TaskLogs() {
         <div className="flex gap-2 flex-wrap items-center">
           <input
             type="text"
-            placeholder="任务 ID (task_xxxx)"
+            placeholder={t('任务 ID (task_xxxx)')}
             value={filters.taskId}
             onChange={e => setFilters(f => ({ ...f, taskId: e.target.value }))}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -470,19 +482,21 @@ export default function TaskLogs() {
           />
           <div className="ml-auto flex gap-2">
             <button
+              type="button"
               onClick={handleReset}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-card text-ink-muted text-xs hover:text-ink hover:bg-cream-dark transition-colors cursor-pointer"
             >
               <RotateCcw size={12} />
-              重置
+              {t('重置')}
             </button>
             <button
+              type="button"
               onClick={handleSearch}
               disabled={listLoading}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer hover:bg-ink-light transition-colors disabled:opacity-50"
             >
               <Search size={12} />
-              查询
+              {t('查询')}
             </button>
           </div>
         </div>
@@ -493,27 +507,27 @@ export default function TaskLogs() {
         {listLoading ? (
           <div className="py-16 text-center text-sm text-ink-muted">
             <div className="inline-block w-5 h-5 border-2 border-ink-faint border-t-ink rounded-full animate-spin mb-3" />
-            <p>加载中...</p>
+            <p>{t('加载中...')}</p>
           </div>
         ) : tasks.length === 0 ? (
           <div className="py-16 text-center">
             <ListTodo size={28} className="text-ink-faint mx-auto mb-3" />
-            <p className="text-sm text-ink-muted">暂无任务记录</p>
-            <p className="text-xs text-ink-faint mt-1">调整筛选条件后重新查询</p>
+            <p className="text-sm text-ink-muted">{t('暂无任务记录')}</p>
+            <p className="text-xs text-ink-faint mt-1">{t('调整筛选条件后重新查询')}</p>
           </div>
         ) : (
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-cream-light border-b border-border">
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">提交时间</th>
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">结束时间</th>
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">花费时间</th>
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">平台</th>
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">类型</th>
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">任务 ID</th>
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">状态</th>
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">进度</th>
-                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">详情</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('提交时间')}</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('结束时间')}</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('花费时间')}</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('平台')}</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('类型')}</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('任务 ID')}</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('状态')}</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('进度')}</th>
+                <th className="px-4 py-3 text-left text-ink-muted font-medium whitespace-nowrap">{t('详情')}</th>
               </tr>
             </thead>
             <tbody>
@@ -521,14 +535,20 @@ export default function TaskLogs() {
                 const statusInfo  = getStatusInfo(task.status)
                 const actionInfo  = getActionInfo(task.action)
                 const platformInfo = getPlatformInfo(task.platform)
+                const actionLabel = ACTION_MAP[task.action]
+                  ? t(ACTION_MAP[task.action].labelKey)
+                  : (task.action || t('未知'))
+                const platformLabel = (task.platform === 'suno' || task.platform === 'mj')
+                  ? platformInfo.label
+                  : (task.platform ? task.platform : t('未知'))
 
                 return (
                   <tr key={task.id ?? idx} className="border-b border-border hover:bg-cream-light/60 transition-colors">
                     {/* 提交时间 */}
-                    <td className="px-4 py-3 text-ink-muted whitespace-nowrap">{formatTime(task.submit_time)}</td>
+                    <td className="px-4 py-3 text-ink-muted whitespace-nowrap">{formatTime(task.submit_time, localeTag)}</td>
 
                     {/* 结束时间 */}
-                    <td className="px-4 py-3 text-ink-muted whitespace-nowrap">{formatTime(task.finish_time)}</td>
+                    <td className="px-4 py-3 text-ink-muted whitespace-nowrap">{formatTime(task.finish_time, localeTag)}</td>
 
                     {/* 花费时间 */}
                     <td className="px-4 py-3 whitespace-nowrap">{renderDuration(task)}</td>
@@ -536,20 +556,21 @@ export default function TaskLogs() {
                     {/* 平台 */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${platformInfo.color}`}>
-                        {platformInfo.label}
+                        {platformLabel}
                       </span>
                     </td>
 
                     {/* 类型 */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${actionInfo.color}`}>
-                        {actionInfo.label}
+                        {actionLabel}
                       </span>
                     </td>
 
                     {/* 任务 ID — 点击查看完整 JSON */}
                     <td className="px-4 py-3">
                       <button
+                        type="button"
                         onClick={() => setJsonModal(JSON.stringify(task, null, 2))}
                         className="font-mono text-xs text-ink-muted hover:text-ink cursor-pointer max-w-[120px] truncate block underline underline-offset-2 decoration-dotted"
                         title={task.task_id}
@@ -561,7 +582,7 @@ export default function TaskLogs() {
                     {/* 任务状态 */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${statusInfo.color}`}>
-                        {statusInfo.label}
+                        {t(statusInfo.labelKey)}
                       </span>
                     </td>
 
@@ -590,9 +611,9 @@ export default function TaskLogs() {
       {!listLoading && tasks.length > 0 && (
         <div className="flex items-center justify-between mt-4 text-xs text-ink-muted">
           <div className="flex items-center gap-2">
-            <span>共 {total} 条</span>
+            <span>{t('共 {{total}} 条', { total })}</span>
             <span className="text-ink-faint">·</span>
-            <span>每页</span>
+            <span>{t('每页')}</span>
             <select
               value={pageSize}
               onChange={handlePageSizeChange}
@@ -600,10 +621,11 @@ export default function TaskLogs() {
             >
               {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <span>条</span>
+            <span>{t('条')}</span>
           </div>
           <div className="flex items-center gap-1">
             <button
+              type="button"
               onClick={() => handlePageChange(page - 1)}
               disabled={page <= 1}
               className="p-1.5 rounded-lg border border-border bg-card hover:bg-cream-dark disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
@@ -614,6 +636,7 @@ export default function TaskLogs() {
               {page} / {totalPages}
             </span>
             <button
+              type="button"
               onClick={() => handlePageChange(page + 1)}
               disabled={page >= totalPages}
               className="p-1.5 rounded-lg border border-border bg-card hover:bg-cream-dark disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"

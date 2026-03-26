@@ -1,37 +1,65 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
+import Turnstile from "react-turnstile";
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   const from = location.state?.from || "/chat";
+
+  const status = useMemo(() => {
+    try {
+      const statusData = localStorage.getItem("status");
+      if (!statusData) return {};
+      return JSON.parse(statusData) || {};
+    } catch {
+      return {};
+    }
+  }, []);
+  const turnstileEnabled = Boolean(status?.turnstile_check);
+  const turnstileSiteKey = status?.turnstile_site_key || "";
+
+  // 兼容旧后端：OAuth 回调可能仍然跳到 /login 并携带 token/session 参数
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token") || params.get("session");
+    if (!token) return;
+
+    navigate(`/oauth/callback?${params.toString()}`, { replace: true });
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!usernameOrEmail || !password) {
-      toast.error("请填写用户名或邮箱地址和密码");
+      toast.error(t("请填写用户名或邮箱地址和密码"));
       return;
     }
-    const result = await login(usernameOrEmail, password);
+    if (turnstileEnabled && !turnstileToken) {
+      toast.error(t("请先完成人机验证"));
+      return;
+    }
+    const result = await login(
+      usernameOrEmail,
+      password,
+      turnstileEnabled ? turnstileToken : "",
+    );
     if (result.success) {
-      toast.success("登录成功");
+      toast.success(t("登录成功"));
       navigate(from, { replace: true });
     } else {
-      toast.error(result.error || "登录失败");
+      toast.error(result.error || t("登录失败"));
     }
-  };
-
-  const handleGoogleLogin = () => {
-    // TODO: Google OAuth 需要后端配置 OIDC Client ID/Secret
-    toast("Google 登录即将推出，请先使用邮箱登录", { icon: "🔜" });
   };
 
   return (
@@ -40,9 +68,13 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-block no-underline">
-            <h1 className="font-serif text-2xl italic text-ink">元枢 AI</h1>
+            <h1 className="font-serif text-2xl italic text-ink">
+              {t("元枢 AI")}
+            </h1>
           </Link>
-          <p className="text-ink-muted text-sm mt-2">一站式 AI 模型聚合平台</p>
+          <p className="text-ink-muted text-sm mt-2">
+            {t("一站式 AI 模型聚合平台")}
+          </p>
         </div>
 
         <div className="bg-card rounded-2xl border border-border p-8">
@@ -70,25 +102,25 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs text-ink-muted mb-1.5">
-                用户名或邮箱地址
+                {t("用户名或邮箱地址")}
               </label>
               <input
                 type="text"
                 value={usernameOrEmail}
                 onChange={(e) => setUsernameOrEmail(e.target.value)}
-                placeholder="请输入用户名或邮箱地址"
+                placeholder={t("请输入用户名或邮箱地址")}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-cream-light text-ink text-sm outline-none focus:border-ink-muted transition-colors"
                 autoComplete="username"
               />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs text-ink-muted">密码</label>
+                <label className="text-xs text-ink-muted">{t("密码")}</label>
                 <Link
                   to="/reset-password"
                   className="text-xs text-accent hover:text-accent-hover no-underline"
                 >
-                  忘记密码？
+                  {t("忘记密码？")}
                 </Link>
               </div>
               <div className="relative">
@@ -96,7 +128,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="输入密码"
+                  placeholder={t("输入密码")}
                   className="w-full px-4 py-2.5 rounded-xl border border-border bg-cream-light text-ink text-sm outline-none focus:border-ink-muted transition-colors pr-10"
                   autoComplete="current-password"
                 />
@@ -115,23 +147,33 @@ export default function LoginPage() {
               disabled={isLoading}
               className="w-full py-3 rounded-xl bg-ink text-cream-light text-sm font-medium cursor-pointer hover:bg-ink-light transition-colors border-none disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "登录中..." : "登录"}
+              {isLoading ? t("登录中...") : t("登录")}
             </button>
           </form>
 
           <p className="text-center text-xs text-ink-muted mt-6">
-            还没有账号？{" "}
+            {t("还没有账号？")}{" "}
             <Link
               to="/register"
               className="text-accent hover:text-accent-hover no-underline font-medium"
             >
-              立即注册
+              {t("立即注册")}
             </Link>
           </p>
+          {turnstileEnabled && (
+            <div className="flex justify-center mt-6">
+              <Turnstile
+                sitekey={turnstileSiteKey}
+                onVerify={(token) => {
+                  setTurnstileToken(token);
+                }}
+              />
+            </div>
+          )}
         </div>
 
         <p className="text-center text-[10px] text-ink-faint mt-6">
-          登录即代表同意《服务条款》和《隐私政策》
+          {t("登录即代表同意《服务条款》和《隐私政策》")}
         </p>
       </div>
     </div>

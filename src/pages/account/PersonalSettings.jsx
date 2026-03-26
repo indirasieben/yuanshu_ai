@@ -19,22 +19,26 @@ import {
   Send,
   Terminal,
 } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../stores/authStore";
+import { useStatusStore } from "../../stores/statusStore";
 import toast from "react-hot-toast";
+import { apiLanguageToI18n, i18nToApiLanguage } from "../../i18n/language";
+import { renderQuota, getCurrencyConfig } from "../../helpers";
 
 // ─── 额度显示 ───────────────────────────────────────────────────────────────
-function renderQuota(q) {
-  if (q == null) return "$0.00";
-  return `$${(q / 500000).toFixed(2)}`;
-}
+// function renderQuota(q) {
+//   if (q == null) return "$0.00";
+//   return `$${(q / 500000).toFixed(2)}`;
+// }
 
 function getRoleLabel(role) {
   if (role === 100)
-    return { label: "超级管理员", color: "bg-red-100 text-red-700" };
+    return { labelKey: "超级管理员", color: "bg-red-100 text-red-700" };
   if (role >= 10)
-    return { label: "管理员", color: "bg-amber-100 text-amber-700" };
-  return { label: "普通用户", color: "bg-blue-100 text-blue-700" };
+    return { labelKey: "管理员", color: "bg-amber-100 text-amber-700" };
+  return { labelKey: "普通用户", color: "bg-blue-100 text-blue-700" };
 }
 
 // ─── 通用 Modal ──────────────────────────────────────────────────────────────
@@ -46,6 +50,7 @@ function Modal({ open, onClose, title, children }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <span className="text-sm font-medium text-ink">{title}</span>
           <button
+            type="button"
             onClick={onClose}
             className="text-ink-muted hover:text-ink text-xl leading-none cursor-pointer border-none bg-transparent"
           >
@@ -60,6 +65,7 @@ function Modal({ open, onClose, title, children }) {
 
 // ─── 修改密码弹窗 ────────────────────────────────────────────────────────────
 function ChangePasswordModal({ open, onClose }) {
+  const { t } = useTranslation();
   const [oldPwd, setOldPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
@@ -69,15 +75,15 @@ function ChangePasswordModal({ open, onClose }) {
 
   const handleSave = async () => {
     if (!newPwd) {
-      toast.error("新密码不能为空");
+      toast.error(t("新密码不能为空"));
       return;
     }
     if (newPwd === oldPwd && oldPwd !== "") {
-      toast.error("新密码不能与原密码相同");
+      toast.error(t("新密码不能与原密码相同"));
       return;
     }
     if (newPwd !== confirmPwd) {
-      toast.error("两次密码不一致");
+      toast.error(t("两次密码不一致"));
       return;
     }
     setSaving(true);
@@ -86,24 +92,24 @@ function ChangePasswordModal({ open, onClose }) {
         original_password: oldPwd,
         password: newPwd,
       });
-      toast.success("密码修改成功");
+      toast.success(t("密码修改成功"));
       onClose();
       setOldPwd("");
       setNewPwd("");
       setConfirmPwd("");
     } catch (err) {
-      toast.error(err.message || "修改失败");
+      toast.error(err.message || t("修改失败"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="修改密码">
+    <Modal open={open} onClose={onClose} title={t("修改密码")}>
       <div className="space-y-3">
         <div>
           <label className="block text-xs text-ink-muted mb-1.5">
-            原密码（OAuth 注册可留空）
+            {t("原密码（OAuth 注册可留空）")}
           </label>
           <div className="relative">
             <input
@@ -111,9 +117,10 @@ function ChangePasswordModal({ open, onClose }) {
               value={oldPwd}
               onChange={(e) => setOldPwd(e.target.value)}
               className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted pr-10"
-              placeholder="留空表示未设置密码"
+              placeholder={t("留空表示未设置密码")}
             />
             <button
+              type="button"
               onClick={() => setShowOld(!showOld)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink cursor-pointer border-none bg-transparent"
             >
@@ -122,16 +129,19 @@ function ChangePasswordModal({ open, onClose }) {
           </div>
         </div>
         <div>
-          <label className="block text-xs text-ink-muted mb-1.5">新密码</label>
+          <label className="block text-xs text-ink-muted mb-1.5">
+            {t("新密码")}
+          </label>
           <div className="relative">
             <input
               type={showNew ? "text" : "password"}
               value={newPwd}
               onChange={(e) => setNewPwd(e.target.value)}
               className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted pr-10"
-              placeholder="输入新密码"
+              placeholder={t("输入新密码")}
             />
             <button
+              type="button"
               onClick={() => setShowNew(!showNew)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink cursor-pointer border-none bg-transparent"
             >
@@ -141,29 +151,169 @@ function ChangePasswordModal({ open, onClose }) {
         </div>
         <div>
           <label className="block text-xs text-ink-muted mb-1.5">
-            确认新密码
+            {t("确认新密码")}
           </label>
           <input
             type="password"
             value={confirmPwd}
             onChange={(e) => setConfirmPwd(e.target.value)}
             className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
-            placeholder="再次输入新密码"
+            placeholder={t("再次输入新密码")}
           />
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer transition-colors"
           >
-            取消
+            {t("取消")}
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
             className="px-4 py-2 rounded-lg bg-ink text-cream-light text-sm font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
           >
-            {saving ? "保存中..." : "确认修改"}
+            {saving ? t("保存中...") : t("确认修改")}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── 绑定 / 修改邮箱弹窗 ───────────────────────────────────────────────────────
+function BindEmailModal({ open, onClose, mode, currentEmail }) {
+  const { t } = useTranslation();
+  const updateEmail = useAuthStore((s) => s.updateEmail);
+  const [email, setEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [cooldownSec, setCooldownSec] = useState(0);
+
+  useEffect(() => {
+    if (!open) {
+      setEmail("");
+      setVerificationCode("");
+      setCooldownSec(0);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (cooldownSec <= 0) return;
+    const timer = setTimeout(() => setCooldownSec((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldownSec]);
+
+  const sendVerificationCode = async () => {
+    if (!email.trim()) {
+      toast.error(t("请先填写邮箱"));
+      return;
+    }
+    setVerificationLoading(true);
+    try {
+      await api.get(
+        `/api/verification?email=${encodeURIComponent(email.trim())}`,
+      );
+      toast.success(t("验证码已发送，请查收邮箱"));
+      setCooldownSec(30);
+    } catch (err) {
+      toast.error(err.message || t("发送验证码失败"));
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!email.trim() || !verificationCode.trim()) {
+      toast.error(t("请填写邮箱与验证码"));
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await updateEmail(
+        encodeURIComponent(email.trim()),
+        verificationCode.trim(),
+      );
+      if (result.success) {
+        toast.success(t("邮箱绑定成功"));
+        onClose();
+      } else {
+        toast.error(result.error || t("操作失败"));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const title = mode === "change" ? t("修改绑定") : t("绑定邮箱");
+
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <div className="space-y-3">
+        {mode === "change" && currentEmail && (
+          <p className="text-xs text-ink-muted">
+            {t("当前：{{email}}", { email: currentEmail })}
+          </p>
+        )}
+        <div>
+          <label className="block text-xs text-ink-muted mb-1.5">
+            {t("邮箱地址")}
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="flex-1 min-w-0 border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
+              placeholder={t("请输入邮箱")}
+              autoComplete="email"
+            />
+            <button
+              type="button"
+              onClick={sendVerificationCode}
+              disabled={verificationLoading || cooldownSec > 0 || !email.trim()}
+              className="shrink-0 px-3 py-2.5 rounded-xl border border-border bg-cream-light text-ink text-xs font-medium hover:bg-cream-dark cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {verificationLoading
+                ? t("发送中…")
+                : cooldownSec > 0
+                  ? t("重新发送 ({{sec}})", { sec: cooldownSec })
+                  : t("获取验证码")}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-ink-muted mb-1.5">
+            {t("邮箱验证码")}
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={verificationCode}
+            onChange={(e) => setVerificationCode(e.target.value)}
+            className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
+            placeholder={t("请输入邮箱中的验证码")}
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer transition-colors"
+          >
+            {t("取消")}
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg bg-ink text-cream-light text-sm font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
+          >
+            {saving ? t("保存中...") : t("确认绑定")}
           </button>
         </div>
       </div>
@@ -173,6 +323,7 @@ function ChangePasswordModal({ open, onClose }) {
 
 // ─── 删除账户弹窗 ─────────────────────────────────────────────────────────────
 function DeleteAccountModal({ open, onClose, username }) {
+  const { t } = useTranslation();
   const { logout } = useAuthStore();
   const navigate = useNavigate();
   const [inputName, setInputName] = useState("");
@@ -180,56 +331,64 @@ function DeleteAccountModal({ open, onClose, username }) {
 
   const handleDelete = async () => {
     if (inputName !== username) {
-      toast.error("用户名不匹配");
+      toast.error(t("用户名不匹配"));
       return;
     }
     setDeleting(true);
     try {
       await api.delete("/api/user/self");
-      toast.success("账号已删除");
+      toast.success(t("账号已删除"));
       logout();
       navigate("/login");
     } catch (err) {
-      toast.error(err.message || "删除失败");
+      toast.error(err.message || t("删除失败"));
       setDeleting(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="删除账户">
+    <Modal open={open} onClose={onClose} title={t("删除账户")}>
       <div className="space-y-4">
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <p className="text-sm text-red-700 font-medium mb-1">⚠️ 危险操作</p>
+          <p className="text-sm text-red-700 font-medium mb-1">
+            {t("⚠️ 危险操作")}
+          </p>
           <p className="text-xs text-red-600">
-            您正在删除自己的账户，将清空所有数据且不可恢复，请谨慎操作。
+            {t("您正在删除自己的账户，将清空所有数据且不可恢复，请谨慎操作。")}
           </p>
         </div>
         <div>
           <label className="block text-xs text-ink-muted mb-1.5">
-            请输入用户名{" "}
-            <span className="font-mono font-medium text-ink">{username}</span>{" "}
-            以确认
+            <Trans
+              i18nKey="请输入用户名 <username>{{name}}</username> 以确认"
+              values={{ name: username }}
+              components={{
+                username: <span className="font-mono font-medium text-ink" />,
+              }}
+            />
           </label>
           <input
             value={inputName}
             onChange={(e) => setInputName(e.target.value)}
             className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-red-300"
-            placeholder="输入用户名"
+            placeholder={t("输入用户名")}
           />
         </div>
         <div className="flex justify-end gap-2">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer transition-colors"
           >
-            取消
+            {t("取消")}
           </button>
           <button
+            type="button"
             onClick={handleDelete}
             disabled={deleting || inputName !== username}
             className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-red-700 transition-colors"
           >
-            {deleting ? "删除中..." : "确认删除"}
+            {deleting ? t("删除中...") : t("确认删除")}
           </button>
         </div>
       </div>
@@ -239,33 +398,34 @@ function DeleteAccountModal({ open, onClose, username }) {
 
 // ─── 修改显示名称弹窗 ─────────────────────────────────────────────────────────
 function EditDisplayNameModal({ open, onClose, currentName, onSaved }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(currentName || "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast.error("名称不能为空");
+      toast.error(t("名称不能为空"));
       return;
     }
     setSaving(true);
     try {
       await api.put("/api/user/self", { display_name: name.trim() });
-      toast.success("显示名称已更新");
+      toast.success(t("显示名称已更新"));
       onSaved(name.trim());
       onClose();
     } catch (err) {
-      toast.error(err.message || "更新失败");
+      toast.error(err.message || t("更新失败"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="修改显示名称">
+    <Modal open={open} onClose={onClose} title={t("修改显示名称")}>
       <div className="space-y-4">
         <div>
           <label className="block text-xs text-ink-muted mb-1.5">
-            显示名称
+            {t("显示名称")}
           </label>
           <input
             value={name}
@@ -274,25 +434,27 @@ function EditDisplayNameModal({ open, onClose, currentName, onSaved }) {
             maxLength={30}
             autoFocus
             className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
-            placeholder="输入你的显示名称"
+            placeholder={t("输入你的显示名称")}
           />
           <p className="text-xs text-ink-faint mt-1.5">
-            仅修改显示名称，不影响邮箱、账号登录凭据
+            {t("仅修改显示名称，不影响邮箱、账号登录凭据")}
           </p>
         </div>
         <div className="flex justify-end gap-2">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer transition-colors"
           >
-            取消
+            {t("取消")}
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
             className="px-4 py-2 rounded-lg bg-ink text-cream-light text-sm font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
           >
-            {saving ? "保存中..." : "确认修改"}
+            {saving ? t("保存中...") : t("确认修改")}
           </button>
         </div>
       </div>
@@ -302,12 +464,13 @@ function EditDisplayNameModal({ open, onClose, currentName, onSaved }) {
 
 // ─── 顶部用户信息卡片 ──────────────────────────────────────────────────────────
 function UserInfoHeader({ user }) {
+  const { t } = useTranslation();
   const roleInfo = getRoleLabel(user?.role || 1);
   const avatarLetters = (user?.display_name || user?.username || "U")
     .slice(0, 2)
     .toUpperCase();
   const [localName, setLocalName] = useState(
-    user?.display_name || user?.username || "用户",
+    () => user?.display_name || user?.username || "",
   );
   const [showEditName, setShowEditName] = useState(false);
 
@@ -321,19 +484,20 @@ function UserInfoHeader({ user }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base font-semibold text-ink">
-              {localName}
+              {localName || t("用户")}
             </span>
             <button
+              type="button"
               onClick={() => setShowEditName(true)}
               className="p-1 rounded-md text-ink-faint hover:text-ink hover:bg-cream-dark bg-transparent border-none cursor-pointer transition-colors"
-              title="修改显示名称"
+              title={t("修改显示名称")}
             >
               <Pencil size={13} />
             </button>
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${roleInfo.color}`}
             >
-              {roleInfo.label}
+              {t(roleInfo.labelKey)}
             </span>
             <span className="text-xs text-ink-faint">ID: {user?.id}</span>
           </div>
@@ -347,29 +511,39 @@ function UserInfoHeader({ user }) {
       <EditDisplayNameModal
         open={showEditName}
         onClose={() => setShowEditName(false)}
-        currentName={localName}
+        currentName={localName || ""}
         onSaved={setLocalName}
       />
       {/* 统计数据 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "当前余额", value: renderQuota(user?.quota), badge: true },
-          { label: "历史消耗", value: renderQuota(user?.used_quota) },
           {
-            label: "请求次数",
+            labelKey: "当前余额",
+            value: renderQuota(user?.quota),
+            badge: true,
+          },
+          {
+            labelKey: "历史消耗",
+            value: renderQuota(user?.used_quota),
+          },
+          {
+            labelKey: "请求次数",
             value: (user?.request_count || 0).toLocaleString(),
           },
-          { label: "用户分组", value: user?.group || "默认" },
+          {
+            labelKey: "用户分组",
+            value: user?.group || t("默认"),
+          },
         ].map((stat) => (
           <div
-            key={stat.label}
+            key={stat.labelKey}
             className="bg-cream-light rounded-xl p-3 border border-border"
           >
             <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-xs text-ink-muted">{stat.label}</span>
+              <span className="text-xs text-ink-muted">{t(stat.labelKey)}</span>
               {stat.badge && (
                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700 font-medium">
-                  余额
+                  {t("余额")}
                 </span>
               )}
             </div>
@@ -383,6 +557,16 @@ function UserInfoHeader({ user }) {
 
 // ─── 签到日历 ─────────────────────────────────────────────────────────────────
 function CheckinCalendar() {
+  const { t } = useTranslation();
+  const weekdayKeys = [
+    "签到星期.日",
+    "签到星期.一",
+    "签到星期.二",
+    "签到星期.三",
+    "签到星期.四",
+    "签到星期.五",
+    "签到星期.六",
+  ];
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [checkedToday, setCheckedToday] = useState(false);
@@ -418,10 +602,12 @@ function CheckinCalendar() {
     try {
       const res = await api.post("/api/user/checkin", {});
       const quota = res.data?.quota_awarded;
-      toast.success(`签到成功！获得 ${renderQuota(quota)}`);
+      toast.success(
+        t("签到成功！获得 {{amount}}", { amount: renderQuota(quota) }),
+      );
       await loadRecords(currentMonth);
     } catch (err) {
-      toast.error(err.message || "签到失败");
+      toast.error(err.message || t("签到失败"));
     }
   };
 
@@ -455,20 +641,25 @@ function CheckinCalendar() {
     <div className="bg-card rounded-xl border border-border p-5 mb-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-medium text-ink">每日签到</h3>
+          <h3 className="text-sm font-medium text-ink">{t("每日签到")}</h3>
           <p className="text-xs text-ink-muted mt-0.5">
-            本月签到 {monthRecords.length} 次 · 获得 {renderQuota(monthTotal)}
+            {t("本月签到 {{n}} 次 · 获得 {{total}}", {
+              n: monthRecords.length,
+              total: renderQuota(monthTotal),
+            })}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={handleCheckin}
             disabled={checkedToday || loading}
             className="px-3 py-1.5 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
           >
-            {checkedToday ? "✓ 已签到" : "签到"}
+            {checkedToday ? t("✓ 已签到") : t("签到")}
           </button>
           <button
+            type="button"
             onClick={() => setCollapsed(!collapsed)}
             className="text-ink-muted hover:text-ink cursor-pointer border-none bg-transparent p-1"
           >
@@ -482,26 +673,28 @@ function CheckinCalendar() {
           {/* 月份切换 */}
           <div className="flex items-center justify-between mb-3">
             <button
+              type="button"
               onClick={prevMonth}
               className="text-xs text-ink-muted hover:text-ink cursor-pointer border-none bg-transparent px-2 py-1 rounded-lg hover:bg-cream-dark"
             >
-              ‹ 上月
+              {t("‹ 上月")}
             </button>
             <span className="text-xs font-medium text-ink">
-              {year} 年 {month} 月
+              {t("{{year}} 年 {{month}} 月", { year, month })}
             </span>
             <button
+              type="button"
               onClick={nextMonth}
               className="text-xs text-ink-muted hover:text-ink cursor-pointer border-none bg-transparent px-2 py-1 rounded-lg hover:bg-cream-dark"
             >
-              下月 ›
+              {t("下月 ›")}
             </button>
           </div>
           {/* 日历格 */}
           <div className="grid grid-cols-7 gap-1 text-center">
-            {["日", "一", "二", "三", "四", "五", "六"].map((d) => (
-              <div key={d} className="text-[11px] text-ink-faint py-1">
-                {d}
+            {weekdayKeys.map((k) => (
+              <div key={k} className="text-[11px] text-ink-faint py-1">
+                {t(k)}
               </div>
             ))}
             {Array.from({ length: firstDay }).map((_, i) => (
@@ -517,7 +710,11 @@ function CheckinCalendar() {
                   key={day}
                   className="flex flex-col items-center py-0.5"
                   title={
-                    checked ? `获得 ${renderQuota(rec?.quota_awarded)}` : ""
+                    checked
+                      ? t("获得 {{amount}}", {
+                          amount: renderQuota(rec?.quota_awarded),
+                        })
+                      : ""
                   }
                 >
                   <span
@@ -545,106 +742,133 @@ function CheckinCalendar() {
 }
 
 // ─── 账户绑定 Tab ──────────────────────────────────────────────────────────────
-function AccountBindings({ user, status }) {
+function AccountBindings({ user }) {
+  const { t } = useTranslation();
+  const [emailModal, setEmailModal] = useState(null);
   const platforms = [
     {
       key: "email",
-      label: "邮箱",
+      labelKey: "邮箱",
       Icon: Mail,
       value: user?.email,
       enabled: true,
+      enableChanges: true,
     },
-    {
-      key: "wechat",
-      label: "微信",
-      Icon: MessageCircle,
-      value: user?.wechat_id,
-      enabled: !!status?.wechat_login,
-    },
-    {
-      key: "github",
-      label: "GitHub",
-      Icon: Github,
-      value: user?.github_id,
-      enabled: !!status?.github_oauth,
-    },
-    {
-      key: "discord",
-      label: "Discord",
-      Icon: Gamepad2,
-      value: user?.discord_id,
-      enabled: !!status?.discord_oauth,
-    },
-    {
-      key: "oidc",
-      label: "OIDC",
-      Icon: ShieldCheck,
-      value: user?.oidc_id,
-      enabled: !!status?.oidc_enabled,
-    },
-    {
-      key: "telegram",
-      label: "Telegram",
-      Icon: Send,
-      value: user?.telegram_id,
-      enabled: !!status?.telegram_oauth,
-    },
-    {
-      key: "linux_do",
-      label: "LinuxDO",
-      Icon: Terminal,
-      value: user?.linux_do_id,
-      enabled: !!status?.linuxdo_oauth,
-    },
+    // {
+    //   key: "wechat",
+    //   labelKey: "微信",
+    //   Icon: MessageCircle,
+    //   value: user?.wechat_id,
+    //   enabled: !!status?.wechat_login,
+    // },
+    // {
+    //   key: "github",
+    //   labelKey: "GitHub",
+    //   Icon: Github,
+    //   value: user?.github_id,
+    //   enabled: !!status?.github_oauth,
+    // },
+    // {
+    //   key: "discord",
+    //   labelKey: "Discord",
+    //   Icon: Gamepad2,
+    //   value: user?.discord_id,
+    //   enabled: !!status?.discord_oauth,
+    // },
+    // {
+    //   key: "oidc",
+    //   labelKey: "OIDC",
+    //   Icon: ShieldCheck,
+    //   value: user?.oidc_id,
+    //   enabled: !!status?.oidc_enabled,
+    // },
+    // {
+    //   key: "telegram",
+    //   labelKey: "Telegram",
+    //   Icon: Send,
+    //   value: user?.telegram_id,
+    //   enabled: !!status?.telegram_oauth,
+    // },
+    // {
+    //   key: "linux_do",
+    //   labelKey: "LinuxDO",
+    //   Icon: Terminal,
+    //   value: user?.linux_do_id,
+    //   enabled: !!status?.linuxdo_oauth,
+    // },
   ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {platforms.map((p) => (
+      {platforms.map((plat) => (
         <div
-          key={p.key}
+          key={plat.key}
           className="flex items-center justify-between px-4 py-3 rounded-xl bg-cream-light border border-border"
         >
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
-              <p.Icon size={14} className="text-ink-muted" />
+              <plat.Icon size={14} className="text-ink-muted" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-medium text-ink">{p.label}</p>
+              <p className="text-xs font-medium text-ink">{t(plat.labelKey)}</p>
               <p className="text-xs text-ink-muted mt-0.5 truncate">
-                {!p.enabled
-                  ? "未启用"
-                  : p.value
-                    ? p.key === "email"
-                      ? p.value
-                      : `ID: ${String(p.value).slice(0, 14)}`
-                    : "未绑定"}
+                {!plat.enabled
+                  ? t("未启用")
+                  : plat.value
+                    ? plat.key === "email"
+                      ? plat.value
+                      : `ID: ${String(plat.value).slice(0, 14)}`
+                    : t("未绑定")}
               </p>
             </div>
           </div>
           <div className="shrink-0 ml-2">
-            {p.enabled && p.value && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                <CheckCircle size={12} /> 已绑
-              </span>
-            )}
-            {p.enabled && !p.value && (
-              <button className="text-xs px-2.5 py-1 rounded-lg border border-border bg-card text-ink-muted hover:bg-cream-dark cursor-pointer transition-colors">
-                绑定
+            {plat.enabled && plat.value && plat.enableChanges && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (plat.key === "email") setEmailModal("change");
+                }}
+                className="text-xs px-2.5 py-1 rounded-lg border border-border bg-card text-ink-muted hover:bg-cream-dark cursor-pointer transition-colors"
+              >
+                {t("修改绑定")}
               </button>
             )}
-            {!p.enabled && (
-              <span className="text-xs text-ink-faint">未启用</span>
+            {plat.enabled && plat.value && !plat.enableChanges && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                <CheckCircle size={12} /> {t("已绑")}
+              </span>
+            )}
+            {plat.enabled && !plat.value && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (plat.key === "email") setEmailModal("bind");
+                }}
+                className="text-xs px-2.5 py-1 rounded-lg border border-border bg-card text-ink-muted hover:bg-cream-dark cursor-pointer transition-colors"
+              >
+                {t("绑定")}
+              </button>
+            )}
+            {!plat.enabled && (
+              <span className="text-xs text-ink-faint">{t("未启用")}</span>
             )}
           </div>
         </div>
       ))}
+      <BindEmailModal
+        open={emailModal !== null}
+        onClose={() => setEmailModal(null)}
+        mode={emailModal === "change" ? "change" : "bind"}
+        currentEmail={user?.email}
+      />
     </div>
   );
 }
 
 // ─── 两步验证 ──────────────────────────────────────────────────────────────────
 function TwoFASection() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0); // 0=view, 1=qr, 2=code, 3=backup
@@ -669,7 +893,7 @@ function TwoFASection() {
       setSetupData(res.data);
       setStep(1);
     } catch (err) {
-      toast.error(err.message || "初始化失败");
+      toast.error(err.message || t("初始化失败"));
     } finally {
       setLoading(false);
     }
@@ -677,7 +901,7 @@ function TwoFASection() {
 
   const handleEnable = async () => {
     if (!code || code.length !== 6) {
-      toast.error("请输入 6 位验证码");
+      toast.error(t("请输入 6 位验证码"));
       return;
     }
     setLoading(true);
@@ -687,7 +911,7 @@ function TwoFASection() {
       setStep(3);
       setStatus((prev) => ({ ...prev, enabled: true }));
     } catch (err) {
-      toast.error(err.message || "验证码错误，启用失败");
+      toast.error(err.message || t("验证码错误，启用失败"));
     } finally {
       setLoading(false);
     }
@@ -695,30 +919,30 @@ function TwoFASection() {
 
   const handleDisable = async () => {
     if (!disableCode) {
-      toast.error("请输入验证码");
+      toast.error(t("请输入验证码"));
       return;
     }
     if (!agreed) {
-      toast.error("请勾选确认");
+      toast.error(t("请勾选确认"));
       return;
     }
     setLoading(true);
     try {
       await api.post("/api/user/2fa/disable", { code: disableCode });
-      toast.success("2FA 已禁用");
+      toast.success(t("2FA 已禁用"));
       setStatus((prev) => ({ ...prev, enabled: false }));
       setShowDisable(false);
       setDisableCode("");
       setAgreed(false);
     } catch (err) {
-      toast.error(err.message || "操作失败");
+      toast.error(err.message || t("操作失败"));
     } finally {
       setLoading(false);
     }
   };
 
   if (status === null) {
-    return <div className="text-xs text-ink-muted">加载中…</div>;
+    return <div className="text-xs text-ink-muted">{t("加载中…")}</div>;
   }
 
   // Step 1: QR 码
@@ -726,7 +950,7 @@ function TwoFASection() {
     return (
       <div className="space-y-3">
         <p className="text-xs text-ink-muted">
-          请使用 Google Authenticator / Authy 等应用扫描二维码：
+          {t("请使用 Google Authenticator / Authy 等应用扫描二维码：")}
         </p>
         <div className="bg-cream-light rounded-xl p-4 flex flex-col items-center gap-3 border border-border">
           {setupData.setup_url && (
@@ -738,7 +962,9 @@ function TwoFASection() {
           )}
           {setupData.secret && (
             <div className="text-center">
-              <p className="text-xs text-ink-muted mb-1">或手动输入密钥：</p>
+              <p className="text-xs text-ink-muted mb-1">
+                {t("或手动输入密钥：")}
+              </p>
               <p className="font-mono text-sm text-ink tracking-wider">
                 {setupData.secret}
               </p>
@@ -747,16 +973,18 @@ function TwoFASection() {
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => setStep(0)}
             className="flex-1 px-3 py-2 rounded-lg text-xs text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer"
           >
-            取消
+            {t("取消")}
           </button>
           <button
+            type="button"
             onClick={() => setStep(2)}
             className="flex-1 px-3 py-2 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer"
           >
-            下一步
+            {t("下一步")}
           </button>
         </div>
       </div>
@@ -768,7 +996,7 @@ function TwoFASection() {
     return (
       <div className="space-y-3">
         <p className="text-xs text-ink-muted">
-          请输入 Authenticator App 中显示的 6 位验证码：
+          {t("请输入 Authenticator App 中显示的 6 位验证码：")}
         </p>
         <input
           value={code}
@@ -781,17 +1009,19 @@ function TwoFASection() {
         />
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => setStep(1)}
             className="flex-1 px-3 py-2 rounded-lg text-xs text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer"
           >
-            返回
+            {t("返回")}
           </button>
           <button
+            type="button"
             onClick={handleEnable}
             disabled={loading || code.length !== 6}
             className="flex-1 px-3 py-2 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer disabled:opacity-50"
           >
-            {loading ? "验证中..." : "验证并启用"}
+            {loading ? t("验证中...") : t("验证并启用")}
           </button>
         </div>
       </div>
@@ -804,7 +1034,7 @@ function TwoFASection() {
       <div className="space-y-3">
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
           <p className="text-xs text-amber-700 font-medium">
-            ⚠️ 请立即保存以下备用码，每个只能使用一次，丢失后无法找回
+            {t("⚠️ 请立即保存以下备用码，每个只能使用一次，丢失后无法找回")}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -818,10 +1048,11 @@ function TwoFASection() {
           ))}
         </div>
         <button
+          type="button"
           onClick={() => setStep(0)}
           className="w-full px-3 py-2 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer"
         >
-          完成
+          {t("完成")}
         </button>
       </div>
     );
@@ -838,40 +1069,42 @@ function TwoFASection() {
           className={status.enabled ? "text-emerald-600" : "text-ink-muted"}
         />
         <span className="text-xs text-ink flex-1">
-          {status.enabled ? "两步验证已启用" : "两步验证未启用"}
+          {status.enabled ? t("两步验证已启用") : t("两步验证未启用")}
         </span>
         {status.enabled && status.backup_codes_count != null && (
           <span className="text-xs text-ink-muted">
-            剩余 {status.backup_codes_count} 个备用码
+            {t("剩余 {{n}} 个备用码", { n: status.backup_codes_count })}
           </span>
         )}
       </div>
       {!status.enabled ? (
         <button
+          type="button"
           onClick={handleSetup}
           disabled={loading}
           className="px-4 py-2 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
         >
-          {loading ? "初始化中..." : "设置 2FA"}
+          {loading ? t("初始化中...") : t("设置 2FA")}
         </button>
       ) : (
         <div className="space-y-2">
           {!showDisable ? (
             <button
+              type="button"
               onClick={() => setShowDisable(true)}
               className="px-4 py-2 rounded-lg border border-red-200 text-red-600 text-xs hover:bg-red-50 cursor-pointer transition-colors bg-transparent"
             >
-              禁用 2FA
+              {t("禁用 2FA")}
             </button>
           ) : (
             <div className="space-y-2 p-3 bg-cream-light rounded-xl border border-border">
               <p className="text-xs text-ink-muted">
-                输入当前验证码或备用码以禁用：
+                {t("输入当前验证码或备用码以禁用：")}
               </p>
               <input
                 value={disableCode}
                 onChange={(e) => setDisableCode(e.target.value)}
-                placeholder="输入验证码"
+                placeholder={t("输入验证码")}
                 className="w-full border border-border rounded-xl px-4 py-2 bg-card text-ink text-sm outline-none focus:border-ink-muted"
               />
               <label className="flex items-center gap-2 text-xs text-ink-muted cursor-pointer">
@@ -881,10 +1114,11 @@ function TwoFASection() {
                   onChange={(e) => setAgreed(e.target.checked)}
                   className="rounded"
                 />
-                我了解禁用 2FA 后账户安全性将降低
+                {t("我了解禁用 2FA 后账户安全性将降低")}
               </label>
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={() => {
                     setShowDisable(false);
                     setDisableCode("");
@@ -892,14 +1126,15 @@ function TwoFASection() {
                   }}
                   className="flex-1 px-3 py-1.5 rounded-lg text-xs text-ink-muted border border-border bg-card hover:bg-cream-dark cursor-pointer"
                 >
-                  取消
+                  {t("取消")}
                 </button>
                 <button
+                  type="button"
                   onClick={handleDisable}
                   disabled={loading}
                   className="flex-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs border-none cursor-pointer disabled:opacity-50 hover:bg-red-700"
                 >
-                  {loading ? "处理中..." : "确认禁用"}
+                  {loading ? t("处理中...") : t("确认禁用")}
                 </button>
               </div>
             </div>
@@ -912,19 +1147,11 @@ function TwoFASection() {
 
 // ─── 安全设置 Tab ──────────────────────────────────────────────────────────────
 function SecuritySettingsTab({ user }) {
+  const { t } = useTranslation();
   const [systemToken, setSystemToken] = useState("");
   const [tokenLoading, setTokenLoading] = useState(false);
-  const [passkeyStatus, setPasskeyStatus] = useState(null);
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
-
-  useEffect(() => {
-    api
-      .get("/api/user/passkey")
-      .then((res) => setPasskeyStatus(res.data))
-      .catch(() => {});
-  }, []);
 
   const handleGenerateToken = async () => {
     setTokenLoading(true);
@@ -934,10 +1161,10 @@ function SecuritySettingsTab({ user }) {
       setSystemToken(token);
       if (token) {
         await navigator.clipboard.writeText(token);
-        toast.success("令牌已生成并复制到剪贴板");
+        toast.success(t("令牌已生成并复制到剪贴板"));
       }
     } catch (err) {
-      toast.error(err.message || "生成失败");
+      toast.error(err.message || t("生成失败"));
     } finally {
       setTokenLoading(false);
     }
@@ -946,26 +1173,11 @@ function SecuritySettingsTab({ user }) {
   const handleCopyToken = async () => {
     try {
       await navigator.clipboard.writeText(systemToken);
-      toast.success("已复制");
-    } catch {}
-  };
-
-  const handlePasskeyDelete = async () => {
-    if (!window.confirm("确定要解绑 Passkey 吗？")) return;
-    setPasskeyLoading(true);
-    try {
-      await api.delete("/api/user/passkey");
-      setPasskeyStatus({ enabled: false });
-      toast.success("Passkey 已解绑");
-    } catch (err) {
-      toast.error(err.message || "操作失败");
-    } finally {
-      setPasskeyLoading(false);
+      toast.success(t("已复制"));
+    } catch {
+      /* 剪贴板权限或环境限制 */
     }
   };
-
-  const passkeySupported =
-    typeof window !== "undefined" && !!window.PublicKeyCredential;
 
   return (
     <div className="space-y-3">
@@ -976,9 +1188,9 @@ function SecuritySettingsTab({ user }) {
             <Key size={14} className="text-ink-muted" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-ink">系统访问令牌</p>
+            <p className="text-sm font-medium text-ink">{t("系统访问令牌")}</p>
             <p className="text-xs text-ink-muted mt-0.5 mb-2">
-              用于直接调用 API 的身份验证令牌
+              {t("用于直接调用 API 的身份验证令牌")}
             </p>
             {systemToken && (
               <div className="flex gap-2 mb-2">
@@ -989,6 +1201,7 @@ function SecuritySettingsTab({ user }) {
                   className="flex-1 border border-border rounded-lg px-3 py-1.5 bg-card text-ink text-xs outline-none font-mono cursor-pointer hover:border-ink-muted"
                 />
                 <button
+                  type="button"
                   onClick={handleCopyToken}
                   className="text-ink-muted hover:text-ink cursor-pointer border-none bg-transparent p-1"
                 >
@@ -997,15 +1210,16 @@ function SecuritySettingsTab({ user }) {
               </div>
             )}
             <button
+              type="button"
               onClick={handleGenerateToken}
               disabled={tokenLoading}
               className="px-3 py-1.5 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
             >
               {tokenLoading
-                ? "生成中..."
+                ? t("生成中...")
                 : systemToken
-                  ? "重新生成"
-                  : "生成令牌"}
+                  ? t("重新生成")
+                  : t("生成令牌")}
             </button>
           </div>
         </div>
@@ -1018,82 +1232,40 @@ function SecuritySettingsTab({ user }) {
             <Lock size={14} className="text-ink-muted" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-ink">密码管理</p>
+            <p className="text-sm font-medium text-ink">{t("密码管理")}</p>
             <p className="text-xs text-ink-muted mt-0.5">
-              定期更改密码可以提升账户安全性
+              {t("定期更改密码可以提升账户安全性")}
             </p>
           </div>
           <button
+            type="button"
             onClick={() => setShowChangePwd(true)}
             className="px-3 py-1.5 rounded-lg border border-border text-ink-muted text-xs hover:bg-cream-dark cursor-pointer transition-colors bg-transparent shrink-0"
           >
-            修改密码
+            {t("修改密码")}
           </button>
         </div>
       </div>
 
-      {/* Passkey */}
-      {/* <div className="px-4 py-3 rounded-xl bg-cream-light border border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
-            <Key size={14} className="text-ink-muted" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-ink">Passkey 登录</p>
-            <p className="text-xs text-ink-muted mt-0.5">
-              {passkeyStatus?.enabled && passkeyStatus?.last_used_at
-                ? `最后使用：${new Date(passkeyStatus.last_used_at).toLocaleDateString()}`
-                : passkeyStatus?.enabled
-                  ? '已注册'
-                  : !passkeySupported
-                    ? '当前设备不支持 Passkey'
-                    : '使用生物识别或安全密钥登录'}
-            </p>
-          </div>
-          <button
-            onClick={passkeyStatus?.enabled ? handlePasskeyDelete : undefined}
-            disabled={passkeyLoading || (!passkeyStatus?.enabled && !passkeySupported)}
-            className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer border transition-colors shrink-0 ${
-              passkeyStatus?.enabled
-                ? 'border-red-200 text-red-600 hover:bg-red-50 bg-transparent'
-                : 'border-border text-ink-muted hover:bg-cream-dark bg-transparent'
-            } disabled:opacity-40`}
-          >
-            {passkeyStatus?.enabled
-              ? (passkeyLoading ? '处理中...' : '解绑 Passkey')
-              : '注册 Passkey'}
-          </button>
-        </div>
-      </div> */}
+      {/* Passkey（已下线 UI，恢复时请接回 /api/user/passkey 与相关状态） */}
 
-      {/* 两步验证 */}
-      {/* <div className="px-4 py-3 rounded-xl bg-cream-light border border-border">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center shrink-0 mt-0.5">
-            <Shield size={14} className="text-ink-muted" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-ink">两步验证（2FA）</p>
-            <p className="text-xs text-ink-muted mt-0.5 mb-3">使用 Authenticator App 进一步增强账户安全</p>
-            <TwoFASection />
-          </div>
-        </div>
-      </div> */}
+      {/* 2FA UI off — restore: card + <TwoFASection />, titles via t("两步验证（2FA）") & t("使用 Authenticator App 进一步增强账户安全") */}
 
       {/* 危险区域 */}
       <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-red-700">删除账户</p>
+            <p className="text-sm font-medium text-red-700">{t("删除账户")}</p>
             <p className="text-xs text-red-500 mt-0.5">
-              所有数据将永久删除，不可恢复
+              {t("所有数据将永久删除，不可恢复")}
             </p>
           </div>
           <button
+            type="button"
             onClick={() => setShowDeleteAccount(true)}
             className="px-3 py-1.5 rounded-lg border border-red-300 text-red-600 text-xs hover:bg-red-100 cursor-pointer transition-colors bg-transparent shrink-0"
           >
-            删除账户
+            {t("删除账户")}
           </button>
         </div>
       </div>
@@ -1113,19 +1285,21 @@ function SecuritySettingsTab({ user }) {
 
 // ─── 账户管理卡片 ─────────────────────────────────────────────────────────────
 function AccountManagement({ user, status }) {
-  const [activeTab, setActiveTab] = useState("security");
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState("bindings");
   const tabs = [
-    // { key: "bindings", label: "账户绑定" },
-    { key: "security", label: "安全设置" },
+    { key: "bindings", labelKey: "账户绑定" },
+    { key: "security", labelKey: "安全设置" },
   ];
 
   return (
     <div className="bg-card rounded-xl border border-border p-5 mb-5">
-      <h3 className="text-sm font-medium text-ink mb-4">账户管理</h3>
+      <h3 className="text-sm font-medium text-ink mb-4">{t("账户管理")}</h3>
       <div className="bg-cream-light rounded-lg p-1 flex gap-1 mb-4 w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.key}
+            type="button"
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-1.5 rounded-md text-xs font-medium cursor-pointer border-none transition-all ${
               activeTab === tab.key
@@ -1133,7 +1307,7 @@ function AccountManagement({ user, status }) {
                 : "text-ink-muted hover:text-ink bg-transparent"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -1147,45 +1321,52 @@ function AccountManagement({ user, status }) {
 }
 
 // ─── 偏好设置卡片 ─────────────────────────────────────────────────────────────
+function resolveApiLanguageFromUser(u) {
+  try {
+    const setting =
+      typeof u?.setting === "string" ? JSON.parse(u.setting) : u?.setting || {};
+    const fromLs = localStorage.getItem("i18nextLng");
+    const apiFromLs = fromLs ? i18nToApiLanguage(fromLs) : null;
+    return setting.Language || apiFromLs || "zh-Hans";
+  } catch {
+    return "zh-Hans";
+  }
+}
+
 function PreferencesCard({ user }) {
+  const { i18n, t } = useTranslation();
   const languages = [
     { value: "zh-Hans", label: "简体中文" },
     { value: "zh-Hant", label: "繁體中文" },
     { value: "en", label: "English" },
-    // { value: "fr", label: "Français" },
-    // { value: "ru", label: "Русский" },
-    // { value: "ja", label: "日本語" },
-    // { value: "vi", label: "Tiếng Việt" },
   ];
 
-  const getInitialLang = () => {
-    try {
-      const setting =
-        typeof user?.setting === "string"
-          ? JSON.parse(user.setting)
-          : user?.setting || {};
-      return (
-        setting.Language || localStorage.getItem("i18nextLng") || "zh-Hans"
-      );
-    } catch {
-      return "zh-Hans";
-    }
-  };
-
-  const [currentLang, setCurrentLang] = useState(getInitialLang);
+  const [currentLang, setCurrentLang] = useState(() =>
+    resolveApiLanguageFromUser(user),
+  );
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setCurrentLang(resolveApiLanguageFromUser(user));
+  }, [user]);
 
   const handleLangChange = async (lang) => {
     const prev = currentLang;
+    const prevI18n = apiLanguageToI18n(prev);
     setCurrentLang(lang);
-    localStorage.setItem("i18nextLng", lang);
+    const nextI18n = apiLanguageToI18n(lang);
+    await i18n.changeLanguage(nextI18n);
+    localStorage.setItem("i18nextLng", nextI18n);
     setSaving(true);
     try {
       await api.put("/api/user/self", { language: lang });
     } catch {
-      toast.error("语言保存失败，已回退");
+      toast.error(t("语言保存失败，已回退"));
       setCurrentLang(prev);
-      localStorage.setItem("i18nextLng", prev);
+      if (prevI18n) {
+        await i18n.changeLanguage(prevI18n);
+        localStorage.setItem("i18nextLng", prevI18n);
+      }
     } finally {
       setSaving(false);
     }
@@ -1194,15 +1375,20 @@ function PreferencesCard({ user }) {
   return (
     <div className="bg-card rounded-xl border border-border p-5 mb-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-ink">偏好设置</h3>
-        {saving && <span className="text-xs text-ink-muted">保存中...</span>}
+        <h3 className="text-sm font-medium text-ink">{t("偏好设置")}</h3>
+        {saving && (
+          <span className="text-xs text-ink-muted">{t("保存中...")}</span>
+        )}
       </div>
       <div>
-        <label className="block text-xs text-ink-muted mb-2">语言偏好</label>
+        <label className="block text-xs text-ink-muted mb-2">
+          {t("语言偏好")}
+        </label>
         <div className="flex flex-wrap gap-2">
           {languages.map((lang) => (
             <button
               key={lang.value}
+              type="button"
               onClick={() => handleLangChange(lang.value)}
               className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer border transition-colors ${
                 currentLang === lang.value
@@ -1221,6 +1407,7 @@ function PreferencesCard({ user }) {
 
 // ─── 其他设置卡片 ─────────────────────────────────────────────────────────────
 function OtherSettingsCard({ user }) {
+  const { t } = useTranslation();
   const getInitialForm = () => {
     try {
       const setting =
@@ -1262,7 +1449,7 @@ function OtherSettingsCard({ user }) {
   const [form, setForm] = useState(getInitialForm);
   const [activeTab, setActiveTab] = useState("notify");
   const [saving, setSaving] = useState(false);
-
+  const { symbol } = getCurrencyConfig();
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
@@ -1274,32 +1461,32 @@ function OtherSettingsCard({ user }) {
           form.quota_warning_threshold * 500000,
         ),
       });
-      toast.success("设置已保存");
+      toast.success(t("设置已保存"));
     } catch (err) {
-      toast.error(err.message || "保存失败");
+      toast.error(err.message || t("保存失败"));
     } finally {
       setSaving(false);
     }
   };
 
   const tabs = [
-    { key: "notify", label: "通知配置" },
-    { key: "price", label: "价格设置" },
-    { key: "privacy", label: "隐私设置" },
+    { key: "notify", labelKey: "通知配置" },
+    { key: "price", labelKey: "价格设置" },
+    { key: "privacy", labelKey: "隐私设置" },
   ];
 
   const notifyTypes = [
-    { value: "email", label: "邮件" },
+    { value: "email", labelKey: "邮件" },
     // { value: "webhook", label: "Webhook" },
     // { value: "bark", label: "Bark" },
     // { value: "gotify", label: "Gotify" },
   ];
 
   const thresholdPresets = [
-    { label: "$0.2", v: 0.2 },
-    { label: "$1", v: 1 },
-    { label: "$2", v: 2 },
-    { label: "$10", v: 10 },
+    { label: `${symbol}10`, v: 10 },
+    { label: `${symbol}100`, v: 100 },
+    { label: `${symbol}500`, v: 500 },
+    { label: `${symbol}1000`, v: 1000 },
   ];
 
   const inputCls =
@@ -1307,6 +1494,7 @@ function OtherSettingsCard({ user }) {
 
   const ToggleSwitch = ({ checked, onChange }) => (
     <button
+      type="button"
       onClick={() => onChange(!checked)}
       className={`w-11 h-6 rounded-full transition-colors cursor-pointer border-none relative shrink-0 ${checked ? "bg-ink" : "bg-cream-dark"}`}
     >
@@ -1319,9 +1507,9 @@ function OtherSettingsCard({ user }) {
   return (
     <div className="bg-card rounded-xl border border-border p-5 mb-5">
       <div className="mb-4">
-        <h3 className="text-sm font-medium text-ink">其他设置</h3>
+        <h3 className="text-sm font-medium text-ink">{t("其他设置")}</h3>
         <p className="text-xs text-ink-muted mt-0.5">
-          通知、价格和隐私相关设置
+          {t("通知、价格和隐私相关设置")}
         </p>
       </div>
 
@@ -1329,6 +1517,7 @@ function OtherSettingsCard({ user }) {
         {tabs.map((tab) => (
           <button
             key={tab.key}
+            type="button"
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-1.5 rounded-md text-xs font-medium cursor-pointer border-none transition-all ${
               activeTab === tab.key
@@ -1336,7 +1525,7 @@ function OtherSettingsCard({ user }) {
                 : "text-ink-muted hover:text-ink bg-transparent"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -1346,20 +1535,21 @@ function OtherSettingsCard({ user }) {
         <div className="space-y-4">
           <div>
             <label className="block text-xs text-ink-muted mb-2">
-              通知方式
+              {t("通知方式")}
             </label>
             <div className="flex gap-2 flex-wrap">
-              {notifyTypes.map((t) => (
+              {notifyTypes.map((nt) => (
                 <button
-                  key={t.value}
-                  onClick={() => update("notify_type", t.value)}
+                  key={nt.value}
+                  type="button"
+                  onClick={() => update("notify_type", nt.value)}
                   className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer border transition-colors ${
-                    form.notify_type === t.value
+                    form.notify_type === nt.value
                       ? "bg-ink text-cream-light border-ink"
                       : "text-ink-muted border-border bg-cream-light hover:bg-cream-dark"
                   }`}
                 >
-                  {t.label}
+                  {t(nt.labelKey)}
                 </button>
               ))}
             </div>
@@ -1367,12 +1557,13 @@ function OtherSettingsCard({ user }) {
 
           <div>
             <label className="block text-xs text-ink-muted mb-2">
-              额度预警阈值（USD）
+              {t(`额度预警阈值（${symbol}）`)}
             </label>
             <div className="flex gap-2 flex-wrap mb-2">
               {thresholdPresets.map((p) => (
                 <button
                   key={p.v}
+                  type="button"
                   onClick={() => update("quota_warning_threshold", p.v)}
                   className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer border transition-colors ${
                     form.quota_warning_threshold === p.v
@@ -1396,14 +1587,14 @@ function OtherSettingsCard({ user }) {
                 )
               }
               className={inputCls}
-              placeholder="自定义阈值"
+              placeholder={t("自定义阈值")}
             />
           </div>
 
           {form.notify_type === "email" && (
             <div>
               <label className="block text-xs text-ink-muted mb-2">
-                通知邮箱（留空则使用账号邮箱）
+                {t("通知邮箱（留空则使用账号邮箱）")}
               </label>
               <input
                 type="email"
@@ -1419,7 +1610,7 @@ function OtherSettingsCard({ user }) {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-ink-muted mb-2">
-                  Webhook 地址
+                  {t("Webhook 地址")}
                 </label>
                 <input
                   value={form.webhook_url}
@@ -1430,13 +1621,13 @@ function OtherSettingsCard({ user }) {
               </div>
               <div>
                 <label className="block text-xs text-ink-muted mb-2">
-                  接口凭证（Bearer Token，可选）
+                  {t("接口凭证（Bearer Token，可选）")}
                 </label>
                 <input
                   value={form.webhook_secret}
                   onChange={(e) => update("webhook_secret", e.target.value)}
                   className={inputCls}
-                  placeholder="可选"
+                  placeholder={t("可选")}
                 />
               </div>
             </div>
@@ -1445,7 +1636,7 @@ function OtherSettingsCard({ user }) {
           {form.notify_type === "bark" && (
             <div>
               <label className="block text-xs text-ink-muted mb-2">
-                Bark 推送 URL
+                {t("Bark 推送 URL")}
               </label>
               <input
                 value={form.bark_url}
@@ -1460,7 +1651,7 @@ function OtherSettingsCard({ user }) {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-ink-muted mb-2">
-                  Gotify 服务器地址
+                  {t("Gotify 服务器地址")}
                 </label>
                 <input
                   value={form.gotify_url}
@@ -1471,7 +1662,7 @@ function OtherSettingsCard({ user }) {
               </div>
               <div>
                 <label className="block text-xs text-ink-muted mb-2">
-                  应用令牌
+                  {t("应用令牌")}
                 </label>
                 <input
                   value={form.gotify_token}
@@ -1482,12 +1673,13 @@ function OtherSettingsCard({ user }) {
               </div>
               <div>
                 <label className="block text-xs text-ink-muted mb-2">
-                  消息优先级（0-10）
+                  {t("消息优先级（0-10）")}
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {[0, 2, 5, 8, 10].map((p) => (
                     <button
                       key={p}
+                      type="button"
                       onClick={() => update("gotify_priority", p)}
                       className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer border transition-colors ${
                         form.gotify_priority === p
@@ -1510,13 +1702,15 @@ function OtherSettingsCard({ user }) {
         <div className="space-y-3">
           <div className="flex items-start justify-between px-4 py-3 rounded-xl bg-cream-light border border-border gap-4">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-ink">接受未设置价格模型</p>
+              <p className="text-sm font-medium text-ink">
+                {t("接受未设置价格模型")}
+              </p>
               <p className="text-xs text-ink-muted mt-0.5">
-                开启后允许调用没有设置价格的模型（有高额费用风险）
+                {t("开启后允许调用没有设置价格的模型（有高额费用风险）")}
               </p>
               {form.accept_unset_model_ratio_model && (
                 <p className="text-xs text-amber-600 mt-1.5 font-medium">
-                  ⚠️ 此功能有产生高额费用的风险，请谨慎使用
+                  {t("⚠️ 此功能有产生高额费用的风险，请谨慎使用")}
                 </p>
               )}
             </div>
@@ -1534,10 +1728,10 @@ function OtherSettingsCard({ user }) {
           <div className="flex items-start justify-between px-4 py-3 rounded-xl bg-cream-light border border-border gap-4">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-ink">
-                记录请求与错误日志 IP
+                {t("记录请求与错误日志 IP")}
               </p>
               <p className="text-xs text-ink-muted mt-0.5">
-                开启后，「消费」和「错误」类型日志将记录客户端 IP 地址
+                {t("开启后，「消费」和「错误」类型日志将记录客户端 IP 地址")}
               </p>
             </div>
             <ToggleSwitch
@@ -1550,11 +1744,12 @@ function OtherSettingsCard({ user }) {
 
       <div className="mt-5 flex justify-end">
         <button
+          type="button"
           onClick={handleSave}
           disabled={saving}
           className="px-5 py-2 rounded-lg bg-ink text-cream-light text-sm font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
         >
-          {saving ? "保存中..." : "保存设置"}
+          {saving ? t("保存中...") : t("保存设置")}
         </button>
       </div>
     </div>
@@ -1564,18 +1759,14 @@ function OtherSettingsCard({ user }) {
 // ─── 个人设置主页面 ────────────────────────────────────────────────────────────
 export default function PersonalSettings() {
   const { user } = useAuthStore();
-  const [status, setStatus] = useState(null);
-
-  useEffect(() => {
-    api
-      .get("/api/status")
-      .then((res) => setStatus(res.data || res))
-      .catch(() => {});
-  }, []);
+  const status = useStatusStore((s) => s.status);
 
   return (
     <div>
-      <UserInfoHeader user={user} />
+      <UserInfoHeader
+        key={`${user?.id ?? ""}-${user?.display_name ?? ""}-${user?.username ?? ""}`}
+        user={user}
+      />
       {status?.checkin_enabled && <CheckinCalendar />}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         <div className="lg:col-span-3">

@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { lazy, Suspense, useEffect, useRef } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Toaster } from "react-hot-toast";
-import toast from "react-hot-toast";
 import { useAuthStore } from "./stores/authStore";
+import { useStatusStore } from "./stores/statusStore";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 // 直接导入高频页面
@@ -17,50 +18,57 @@ const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ModelListPage = lazy(() => import("./pages/ModelListPage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
 const ApiKeysPage = lazy(() => import("./pages/ApiKeysPage"));
+const ResetPasswordConfirmPage = lazy(
+  () => import("./pages/ResetPasswordConfirmPage"),
+);
+const OAuthCallbackPage = lazy(() => import("./pages/OAuthCallbackPage"));
 
 function LoadingFallback() {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-center h-screen bg-cream">
-      <div className="text-ink-muted text-sm">加载中...</div>
+      <div className="text-ink-muted text-sm">{t("加载中…")}</div>
     </div>
   );
 }
 
 export default function App() {
+  useTranslation();
   const { isAuthenticated, fetchSelf } = useAuthStore();
-  const navigate = useNavigate();
-
-  // 处理 OAuth 回调 — new-api 在 OIDC 登录成功后会在 URL 中附带 session token
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token") || params.get("session");
-    if (token) {
-      // 保存 token 到 auth store
-      useAuthStore.setState({ sessionToken: token, isAuthenticated: true });
-      // 清除 URL 中的 token 参数
-      window.history.replaceState(
-        {},
-        "",
-        window.location.pathname + window.location.hash,
-      );
-      // 获取用户信息
-      useAuthStore
-        .getState()
-        .fetchSelf()
-        .then(() => {
-          toast.success("登录成功");
-          navigate("/chat", { replace: true });
-        });
-      return;
-    }
-  }, []);
+  const { fetchStatus } = useStatusStore();
+  const location = useLocation();
+  const prevPathRef = useRef(location.pathname);
 
   // 应用启动时，如果有 token 则验证登录状态
   useEffect(() => {
+    const pathname = location.pathname;
+    const shouldFetchSelf =
+      pathname.startsWith("/chat") ||
+      pathname.startsWith("/models") ||
+      pathname.startsWith("/api-keys") ||
+      pathname.startsWith("/account");
+
     if (isAuthenticated) {
-      fetchSelf();
+      if (shouldFetchSelf) fetchSelf();
     }
-  }, []);
+  }, [isAuthenticated, fetchSelf, location.pathname]);
+
+  // 站点打开的第一次请求拉取系统状态（包含公开页面）
+  useEffect(() => {
+    void fetchStatus();
+  }, [fetchStatus]);
+
+  // 切换到 /account/settings 时强制刷新一次
+  useEffect(() => {
+    const normalize = (p) => String(p || "").replace(/\/+$/, "") || "/";
+    const prev = normalize(prevPathRef.current);
+    const next = normalize(location.pathname);
+    prevPathRef.current = location.pathname;
+
+    if (next === "/account/settings" && prev !== "/account/settings") {
+      void fetchStatus({ force: true });
+    }
+  }, [location.pathname, fetchStatus]);
 
   return (
     <>
@@ -84,6 +92,8 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/user/reset" element={<ResetPasswordConfirmPage />} />
+          <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
 
           {/* 受保护页面 */}
           <Route element={<ProtectedRoute />}>

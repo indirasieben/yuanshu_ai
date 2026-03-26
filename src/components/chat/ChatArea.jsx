@@ -1,8 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import MessageBubble from './MessageBubble'
 import { useModelStore } from '../../stores/modelStore'
 
 export default function ChatArea({ messages, isStreaming, streamingContent, streamingReasoningContent, activeModel }) {
+  const { t } = useTranslation()
   const bottomRef = useRef(null)
   const containerRef = useRef(null)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -68,7 +70,9 @@ export default function ChatArea({ messages, isStreaming, streamingContent, stre
               </div>
               <div className="mt-1.5 px-1">
                 <span className="text-[11px] text-ink-faint">
-                  {getModel(activeModel)?.name || activeModel} 正在思考...
+                  {t('{{model}} 正在思考...', {
+                    model: getModel(activeModel)?.name || activeModel,
+                  })}
                 </span>
               </div>
             </div>

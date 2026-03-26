@@ -7,12 +7,18 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "i18n:compose-en-4": "node scripts/compose-en-pairs-4.cjs",
+    "i18n:build-en": "node scripts/compose-en-pairs-4.cjs && node scripts/build-en-from-pairs.cjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@douyinfe/semi-icons": "^2.63.1",
+    "@douyinfe/semi-ui": "^2.93.0",
+    "@lobehub/icons": "^2.0.0",
     "@tailwindcss/vite": "^4.2.1",
     "clsx": "^2.1.1",
     "i18next": "^25.8.19",
+    "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -20,6 +26,7 @@
     "react-i18next": "^16.5.8",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.1",
+    "react-turnstile": "^1.0.5",
     "recharts": "^3.8.0",
     "tailwindcss": "^4.2.1",
     "zustand": "^5.0.11"
@@ -33,6 +40,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "opencc-js": "^1.0.5",
     "vite": "^7.3.1"
   }
 }

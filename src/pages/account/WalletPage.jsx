@@ -12,14 +12,22 @@ import {
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../stores/authStore";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import i18n from "../../i18n/i18n";
 
-import { formatSubscriptionDuration } from "../../helpers/subscriptionFormat.js";
+import {
+  formatSubscriptionDuration,
+  renderQuota,
+  renderQuotaWithoutSymbol,
+  getCurrencyConfig,
+} from "../../helpers";
 
 // ─── 额度展示 ─────────────────────────────────────────────────────────────────
-function renderQuota(q) {
-  if (q == null) return "$0.00";
-  return `$${(q / 500000).toFixed(2)}`;
-}
+
+// function renderQuota(q) {
+//   if (q == null) return "$0.00";
+//   return `$${(q / 500000).toFixed(2)}`;
+// }
 
 // ─── 通用 Modal ───────────────────────────────────────────────────────────────
 function Modal({ open, onClose, title, children, maxWidth = "max-w-md" }) {
@@ -32,6 +40,7 @@ function Modal({ open, onClose, title, children, maxWidth = "max-w-md" }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <span className="text-sm font-medium text-ink">{title}</span>
           <button
+            type="button"
             onClick={onClose}
             className="text-ink-muted hover:text-ink text-xl leading-none cursor-pointer border-none bg-transparent"
           >
@@ -46,10 +55,11 @@ function Modal({ open, onClose, title, children, maxWidth = "max-w-md" }) {
 
 // ─── 状态标签 ─────────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
+  const { t } = useTranslation();
   const map = {
-    pending: { label: "待支付", cls: "bg-amber-100 text-amber-700" },
-    success: { label: "已完成", cls: "bg-emerald-100 text-emerald-700" },
-    expired: { label: "已过期", cls: "bg-cream-dark text-ink-muted" },
+    pending: { label: t("待支付"), cls: "bg-amber-100 text-amber-700" },
+    success: { label: t("已完成"), cls: "bg-emerald-100 text-emerald-700" },
+    expired: { label: t("已过期"), cls: "bg-cream-dark text-ink-muted" },
   };
   const s = map[status] || {
     label: status,
@@ -67,16 +77,17 @@ function StatusBadge({ status }) {
 // ─── 支付方式名称 ──────────────────────────────────────────────────────────────
 function payMethodLabel(method) {
   const map = {
-    alipay: "支付宝",
-    wxpay: "微信支付",
-    stripe: "Stripe",
-    creem: "Creem",
+    alipay: i18n.t("支付宝"),
+    wxpay: i18n.t("微信支付"),
+    stripe: i18n.t("Stripe"),
+    creem: i18n.t("Creem"),
   };
   return map[method] || method;
 }
 
 // ─── 充值历史弹窗 ─────────────────────────────────────────────────────────────
 function TopupHistoryModal({ open, onClose }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -123,7 +134,12 @@ function TopupHistoryModal({ open, onClose }) {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <Modal open={open} onClose={onClose} title="充值记录" maxWidth="max-w-2xl">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t("充值记录")}
+      maxWidth="max-w-2xl"
+    >
       {/* 搜索栏 */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
@@ -135,7 +151,7 @@ function TopupHistoryModal({ open, onClose }) {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="搜索订单号…"
+            placeholder={t("搜索订单号…")}
             className="w-full pl-8 pr-4 py-2 border border-border rounded-xl bg-cream-light text-ink text-xs outline-none focus:border-ink-muted"
           />
         </div>
@@ -143,16 +159,18 @@ function TopupHistoryModal({ open, onClose }) {
           onClick={handleSearch}
           className="px-4 py-2 rounded-xl bg-ink text-cream-light text-xs font-medium border-none cursor-pointer hover:bg-ink-light transition-colors"
         >
-          搜索
+          {t("搜索")}
         </button>
       </div>
 
       {/* 列表 */}
       {loading ? (
-        <div className="text-center py-8 text-xs text-ink-muted">加载中…</div>
+        <div className="text-center py-8 text-xs text-ink-muted">
+          {t("加载中…")}
+        </div>
       ) : items.length === 0 ? (
         <div className="text-center py-8 text-xs text-ink-muted">
-          暂无充值记录
+          {t("暂无充值记录")}
         </div>
       ) : (
         <div className="space-y-2">
@@ -187,7 +205,9 @@ function TopupHistoryModal({ open, onClose }) {
       {/* 分页 */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-          <span className="text-xs text-ink-muted">共 {total} 条</span>
+          <span className="text-xs text-ink-muted">
+            {t("共 {{total}} 条", { total })}
+          </span>
           <div className="flex items-center gap-1">
             <button
               disabled={page <= 1}
@@ -224,22 +244,23 @@ function PaymentConfirmModal({
   onConfirm,
   confirming,
 }) {
+  const { t } = useTranslation();
   return (
-    <Modal open={open} onClose={onClose} title="确认充值">
+    <Modal open={open} onClose={onClose} title={t("确认充值")}>
       <div className="space-y-4">
         <div className="bg-cream-light rounded-xl border border-border divide-y divide-border">
           <div className="flex justify-between px-4 py-3">
-            <span className="text-xs text-ink-muted">充值额度</span>
+            <span className="text-xs text-ink-muted">{t("充值额度")}</span>
             <span className="text-sm font-medium text-ink">
               {renderQuota(amount * 500000)}
             </span>
           </div>
           <div className="flex justify-between px-4 py-3">
-            <span className="text-xs text-ink-muted">支付方式</span>
+            <span className="text-xs text-ink-muted">{t("支付方式")}</span>
             <span className="text-sm text-ink">{methodLabel}</span>
           </div>
           <div className="flex justify-between px-4 py-3">
-            <span className="text-xs text-ink-muted">实付金额</span>
+            <span className="text-xs text-ink-muted">{t("实付金额")}</span>
             <span className="text-base font-semibold text-red-500">
               {currency === "USD"
                 ? `$${Number(actualAmount).toFixed(2)}`
@@ -252,14 +273,14 @@ function PaymentConfirmModal({
             onClick={onClose}
             className="flex-1 px-4 py-2 rounded-lg text-sm text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer transition-colors"
           >
-            取消
+            {t("取消")}
           </button>
           <button
             onClick={onConfirm}
             disabled={confirming}
             className="flex-1 px-4 py-2 rounded-lg bg-ink text-cream-light text-sm font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
           >
-            {confirming ? "处理中…" : "确认支付"}
+            {confirming ? t("处理中…") : t("确认支付")}
           </button>
         </div>
       </div>
@@ -269,62 +290,69 @@ function PaymentConfirmModal({
 
 // ─── 划转弹窗 ─────────────────────────────────────────────────────────────────
 function TransferModal({ open, onClose, maxQuota, onSuccess }) {
-  const maxUSD = (maxQuota / 500000).toFixed(2);
-  const [inputUSD, setInputUSD] = useState("");
+  const { t } = useTranslation();
+  const { symbol, rate } = getCurrencyConfig();
+  const maxHkD = renderQuota(maxQuota);
+  const maxHKDWithoutSymbol = renderQuotaWithoutSymbol(maxQuota);
+
+  const [inputHKD, setInputHKD] = useState("");
   const [transferring, setTransferring] = useState(false);
 
   const handleTransfer = async () => {
-    const usd = parseFloat(inputUSD);
-    if (!usd || usd <= 0) {
-      toast.error("请输入划转金额");
+    const hkd = parseFloat(inputHKD);
+    if (!hkd || hkd <= 0) {
+      toast.error(t("请输入划转金额"));
       return;
     }
-    const quota = Math.round(usd * 500000);
+    const quota = Math.round((hkd / rate) * 500000);
     if (quota > maxQuota) {
-      toast.error(`最多可划转 $${maxUSD}`);
+      toast.error(t("最多可划转 {{amount}}", { amount: `${maxHkD}` }));
       return;
     }
     setTransferring(true);
     try {
       await api.post("/api/user/aff_transfer", { quota });
-      toast.success("划转成功");
+      toast.success(t("划转成功"));
       onSuccess();
       onClose();
-      setInputUSD("");
+      setInputHKD("");
     } catch (err) {
-      toast.error(err.message || "划转失败");
+      toast.error(err.message || t("划转失败"));
     } finally {
       setTransferring(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="邀请额度划转">
+    <Modal open={open} onClose={onClose} title={t("邀请额度划转")}>
       <div className="space-y-4">
         <p className="text-xs text-ink-muted">
-          将邀请奖励额度划转到主账户余额，可用于 API 调用消费。
+          {t("将邀请奖励额度划转到主账户余额，可用于 API 调用消费。")}
         </p>
         <div>
           <label className="block text-xs text-ink-muted mb-1.5">
-            划转金额（USD，最多可划转{" "}
-            <span className="text-ink font-medium">${maxUSD}</span>）
+            {t("划转金额（最多可划转:")}
+            <span className="text-ink font-medium">
+              {renderQuota(maxQuota)}
+            </span>
+            {t("）")}
           </label>
           <div className="flex gap-2">
             <input
               type="number"
-              value={inputUSD}
-              onChange={(e) => setInputUSD(e.target.value)}
+              value={inputHKD}
+              onChange={(e) => setInputHKD(e.target.value)}
               min="0.000002"
-              max={maxUSD}
+              max={maxHKDWithoutSymbol}
               step="0.01"
-              placeholder={`0.00 ~ ${maxUSD}`}
+              placeholder={`0.00 ~ ${maxHKDWithoutSymbol}`}
               className="flex-1 border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
             />
             <button
-              onClick={() => setInputUSD(maxUSD)}
+              onClick={() => setInputHKD(maxHKDWithoutSymbol)}
               className="px-3 py-2 rounded-xl border border-border bg-cream-light text-ink-muted text-xs hover:bg-cream-dark cursor-pointer transition-colors"
             >
-              全部
+              {t("全部")}
             </button>
           </div>
         </div>
@@ -333,14 +361,14 @@ function TransferModal({ open, onClose, maxQuota, onSuccess }) {
             onClick={onClose}
             className="flex-1 px-4 py-2 rounded-lg text-sm text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer transition-colors"
           >
-            取消
+            {t("取消")}
           </button>
           <button
             onClick={handleTransfer}
             disabled={transferring}
             className="flex-1 px-4 py-2 rounded-lg bg-ink text-cream-light text-sm font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
           >
-            {transferring ? "划转中…" : "确认划转"}
+            {transferring ? t("划转中…") : t("确认划转")}
           </button>
         </div>
       </div>
@@ -368,6 +396,7 @@ function submitEpayForm(url, params) {
 
 // ─── 在线充值 Tab ─────────────────────────────────────────────────────────────
 function RechargeTab({ topupInfo }) {
+  const { t } = useTranslation();
   const {
     enable_online_topup,
     enable_stripe_topup,
@@ -433,7 +462,7 @@ function RechargeTab({ topupInfo }) {
   const handleConfirmPay = async () => {
     const num = parseInt(amount);
     if (!num) {
-      toast.error("请输入充值数量");
+      toast.error(t("请输入充值数量"));
       return;
     }
     setConfirming(true);
@@ -441,12 +470,12 @@ function RechargeTab({ topupInfo }) {
       if (selectedMethod?.type === "stripe") {
         const minS = stripe_min_topup || 1;
         if (num < minS) {
-          toast.error(`Stripe 最低充值 ${minS} 单位`);
+          toast.error(t("Stripe 最低充值 {{min}} 单位", { min: minS }));
           setConfirming(false);
           return;
         }
         if (num > 10000) {
-          toast.error("Stripe 单次最多充值 10000 单位");
+          toast.error(t("Stripe 单次最多充值 10000 单位"));
           setConfirming(false);
           return;
         }
@@ -458,11 +487,11 @@ function RechargeTab({ topupInfo }) {
         });
         const link = res.data?.pay_link || res.data;
         if (link) window.open(link, "_blank");
-        else toast.error("获取支付链接失败");
+        else toast.error(t("获取支付链接失败"));
       } else {
         const minT = min_topup || 1;
         if (num < minT) {
-          toast.error(`最低充值 ${minT} 单位`);
+          toast.error(t("最低充值 {{min}} 单位", { min: minT }));
           setConfirming(false);
           return;
         }
@@ -473,12 +502,12 @@ function RechargeTab({ topupInfo }) {
         if (res.url && res.data) {
           submitEpayForm(res.url, res.data);
         } else {
-          toast.error("获取支付参数失败");
+          toast.error(t("获取支付参数失败"));
         }
       }
       setShowConfirm(false);
     } catch (err) {
-      toast.error(err.message || "支付发起失败");
+      toast.error(err.message || t("支付发起失败"));
     } finally {
       setConfirming(false);
     }
@@ -488,7 +517,11 @@ function RechargeTab({ topupInfo }) {
   const handleCreemBuy = async (product) => {
     if (
       !window.confirm(
-        `确认购买「${product.name}」，支付 ${product.price} ${product.currency}？`,
+        t("确认购买「{{name}}」，支付 {{price}} {{currency}}？", {
+          name: product.name,
+          price: product.price,
+          currency: product.currency,
+        }),
       )
     )
       return;
@@ -499,9 +532,9 @@ function RechargeTab({ topupInfo }) {
       });
       const link = res.data?.pay_link || res.data;
       if (link) window.open(link, "_blank");
-      else toast.error("获取支付链接失败");
+      else toast.error(t("获取支付链接失败"));
     } catch (err) {
-      toast.error(err.message || "发起失败");
+      toast.error(err.message || t("发起失败"));
     }
   };
 
@@ -513,8 +546,8 @@ function RechargeTab({ topupInfo }) {
     <div>
       {!hasOnlineTopup ? (
         <div className="text-center py-8">
-          <p className="text-sm text-ink-muted">在线充值暂未开放</p>
-          <p className="text-xs text-ink-faint mt-1">请使用兑换码充值</p>
+          <p className="text-sm text-ink-muted">{t("在线充值暂未开放")}</p>
+          <p className="text-xs text-ink-faint mt-1">{t("请使用兑换码充值")}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -522,7 +555,7 @@ function RechargeTab({ topupInfo }) {
           {amount_options.length > 0 && (
             <div>
               <label className="block text-xs text-ink-muted mb-2">
-                快捷选择
+                {t("快捷选择")}
               </label>
               <div className="flex flex-wrap gap-2">
                 {amount_options.map((opt) => {
@@ -540,7 +573,7 @@ function RechargeTab({ topupInfo }) {
                       {opt}
                       {d && d < 1 && (
                         <span className="absolute -top-1.5 -right-1.5 px-1 py-0.5 rounded text-[9px] bg-red-500 text-white font-bold leading-none">
-                          {Math.round(d * 10)}折
+                          {t("{{n}}折", { n: Math.round(d * 10) })}
                         </span>
                       )}
                     </button>
@@ -553,14 +586,14 @@ function RechargeTab({ topupInfo }) {
           {/* 数量输入 */}
           <div>
             <label className="block text-xs text-ink-muted mb-2">
-              充值数量（单位）
+              {t("充值数量（单位）")}
             </label>
             <input
               type="number"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
               min={min_topup || 1}
-              placeholder={`最低 ${min_topup || 1} 单位`}
+              placeholder={t("最低 {{min}} 单位", { min: min_topup || 1 })}
               className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
             />
             {amount && (
@@ -568,7 +601,9 @@ function RechargeTab({ topupInfo }) {
                 ≈ {renderQuota(parseInt(amount || 0) * 500000)}
                 {discountForAmount && discountForAmount < 1 && (
                   <span className="ml-2 text-red-500 font-medium">
-                    {Math.round(discountForAmount * 10)}折优惠
+                    {t("{{n}}折优惠", {
+                      n: Math.round(discountForAmount * 10),
+                    })}
                   </span>
                 )}
               </p>
@@ -579,7 +614,7 @@ function RechargeTab({ topupInfo }) {
           {actualAmount != null && (
             <div className="px-4 py-3 rounded-xl bg-cream-light border border-border">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-ink-muted">预计实付</span>
+                <span className="text-xs text-ink-muted">{t("预计实付")}</span>
                 <span className="text-lg font-semibold text-red-500">
                   {actualCurrency === "USD"
                     ? `$${Number(actualAmount).toFixed(2)}`
@@ -593,7 +628,7 @@ function RechargeTab({ topupInfo }) {
           {enable_online_topup && pay_methods.length > 0 && (
             <div>
               <label className="block text-xs text-ink-muted mb-2">
-                选择支付方式
+                {t("选择支付方式")}
               </label>
               <div className="flex flex-wrap gap-2">
                 {pay_methods.map((m) => (
@@ -617,7 +652,7 @@ function RechargeTab({ topupInfo }) {
             <div>
               {!enable_online_topup && (
                 <label className="block text-xs text-ink-muted mb-2">
-                  选择支付方式
+                  {t("选择支付方式")}
                 </label>
               )}
               <button
@@ -626,7 +661,7 @@ function RechargeTab({ topupInfo }) {
                 }
                 className="px-5 py-2.5 rounded-xl border border-[#635BFF] text-[#635BFF] text-sm font-medium cursor-pointer hover:bg-[#635BFF]/5 transition-colors bg-transparent"
               >
-                💳 Stripe 信用卡
+                {t("💳 Stripe 信用卡")}
               </button>
             </div>
           )}
@@ -635,7 +670,7 @@ function RechargeTab({ topupInfo }) {
           {enable_creem_topup && creem_products.length > 0 && (
             <div>
               <label className="block text-xs text-ink-muted mb-2">
-                Creem 套餐
+                {t("Creem 套餐")}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {creem_products.map((p) => (
@@ -647,7 +682,7 @@ function RechargeTab({ topupInfo }) {
                     <div>
                       <p className="text-sm font-medium text-ink">{p.name}</p>
                       <p className="text-xs text-ink-muted mt-0.5">
-                        {renderQuota(p.quota)} 额度
+                        {t("{{quota}} 额度", { quota: renderQuota(p.quota) })}
                       </p>
                     </div>
                     <span className="text-sm font-semibold text-ink">
@@ -678,11 +713,12 @@ function RechargeTab({ topupInfo }) {
 
 // ─── 订阅计划 Tab ─────────────────────────────────────────────────────────────
 function SubscriptionTab({ plans, currentSub }) {
-  console.log(plans);
+  const { t } = useTranslation();
+
   if (!plans || plans.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-sm text-ink-muted">暂无订阅计划</p>
+        <p className="text-sm text-ink-muted">{t("暂无订阅计划")}</p>
       </div>
     );
   }
@@ -691,6 +727,13 @@ function SubscriptionTab({ plans, currentSub }) {
     <div className="grid grid-cols-1 gap-3">
       {plans.map((p) => {
         const plan = p.plan;
+        const { symbol, rate } = getCurrencyConfig();
+        const price = Number(plan?.price_amount || 0);
+        const convertedPrice = price * rate;
+        const displayPrice = convertedPrice.toFixed(
+          Number.isInteger(convertedPrice) ? 0 : 2,
+        );
+
         const isActive =
           currentSub?.plan_id === plan.id && currentSub?.status === "active";
         return (
@@ -708,7 +751,7 @@ function SubscriptionTab({ plans, currentSub }) {
                   </span>
                   {isActive && (
                     <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700 font-medium">
-                      当前订阅
+                      {t("当前订阅")}
                     </span>
                   )}
                 </div>
@@ -716,31 +759,33 @@ function SubscriptionTab({ plans, currentSub }) {
                   <p className="text-xs text-ink-muted mt-1">{plan.subtitle}</p>
                 )}
                 <p className="text-xs text-ink-faint mt-1">
-                  有效期: {formatSubscriptionDuration(plan)}
+                  {t("有效期: {{duration}}", {
+                    duration: formatSubscriptionDuration(plan, t),
+                  })}
                 </p>
                 {plan.total_amount && (
                   <p className="text-xs text-ink-faint mt-1">
-                    总额度 {renderQuota(plan.total_amount)}
+                    {t("总额度 {{amount}}", {
+                      amount: renderQuota(plan.total_amount),
+                    })}
                   </p>
                 )}
               </div>
               <div className="text-right shrink-0">
                 {plan.price_amount != null && (
                   <p className="text-base font-semibold text-ink">
-                    {plan.currency === "USD"
-                      ? `$${plan.price_amount}`
-                      : `¥${plan.price_amount}`}
+                    {`${symbol} ${displayPrice} `}
                     <span className="text-xs text-ink-muted font-normal">
-                      /期
+                      {t("/期")}
                     </span>
                   </p>
                 )}
                 {!isActive && (
                   <button
-                    onClick={() => toast("订阅功能即将上线", { icon: "🔔" })}
+                    onClick={() => toast(t("订阅功能即将上线"), { icon: "🔔" })}
                     className="mt-2 px-3 py-1.5 rounded-lg bg-ink text-cream-light text-xs font-medium border-none cursor-pointer hover:bg-ink-light transition-colors"
                   >
-                    订阅
+                    {t("订阅")}
                   </button>
                 )}
               </div>
@@ -754,6 +799,7 @@ function SubscriptionTab({ plans, currentSub }) {
 
 // ─── 充值卡（左列） ────────────────────────────────────────────────────────────
 function RechargeCard({ topupInfo, plans, currentSub }) {
+  const { t } = useTranslation();
   const hasPlans = plans && plans.length > 0;
   const [activeTab, setActiveTab] = useState(
     hasPlans ? "subscription" : "recharge",
@@ -764,13 +810,13 @@ function RechargeCard({ topupInfo, plans, currentSub }) {
   const { fetchSelf } = useAuthStore();
 
   const tabs = [
-    { key: "recharge", label: "充值" },
-    ...(hasPlans ? [{ key: "subscription", label: "订阅计划" }] : []),
+    { key: "recharge", label: t("充值") },
+    ...(hasPlans ? [{ key: "subscription", label: t("订阅计划") }] : []),
   ];
 
   const handleRedeem = async () => {
     if (!redeemCode.trim()) {
-      toast.error("请输入兑换码");
+      toast.error(t("请输入兑换码"));
       return;
     }
     setRedeeming(true);
@@ -778,14 +824,16 @@ function RechargeCard({ topupInfo, plans, currentSub }) {
       const res = await api.post("/api/user/topup", { key: redeemCode.trim() });
       const quota = res.data;
       if (res.success !== false) {
-        toast.success(`兑换成功！获得 ${renderQuota(quota)}`);
+        toast.success(
+          t("兑换成功！获得 {{quota}}", { quota: renderQuota(quota) }),
+        );
         setRedeemCode("");
         await fetchSelf();
       } else {
-        toast.error(res.message || "兑换失败");
+        toast.error(res.message || t("兑换失败"));
       }
     } catch (err) {
-      toast.error(err.message || "兑换失败");
+      toast.error(err.message || t("兑换失败"));
     } finally {
       setRedeeming(false);
     }
@@ -796,23 +844,26 @@ function RechargeCard({ topupInfo, plans, currentSub }) {
       {/* 充值 / 订阅 主卡 */}
       <div className="bg-card rounded-xl border border-border p-5">
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-sm font-medium text-ink flex-1">在线充值</h3>
+          <h3 className="text-sm font-medium text-ink flex-1">
+            {t("在线充值")}
+          </h3>
         </div>
 
         {/* Tab 切换 */}
         {tabs.length > 1 && (
           <div className="bg-cream-light rounded-lg p-1 flex gap-1 mb-5 w-fit">
-            {tabs.map((t) => (
+            {tabs.map((tab) => (
               <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-1.5 rounded-md text-xs font-medium cursor-pointer border-none transition-all ${
-                  activeTab === t.key
+                  activeTab === tab.key
                     ? "bg-card text-ink shadow-sm"
                     : "text-ink-muted hover:text-ink bg-transparent"
                 }`}
               >
-                {t.label}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -829,33 +880,35 @@ function RechargeCard({ topupInfo, plans, currentSub }) {
       <div className="bg-card rounded-xl border border-border p-5">
         <div className="flex items-center gap-2 mb-4">
           <Ticket size={14} className="text-ink-muted" />
-          <h3 className="text-sm font-medium text-ink">兑换码充值</h3>
+          <h3 className="text-sm font-medium text-ink">{t("兑换码充值")}</h3>
         </div>
         <div className="flex gap-2">
           <input
             value={redeemCode}
             onChange={(e) => setRedeemCode(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleRedeem()}
-            placeholder="输入兑换码"
+            placeholder={t("输入兑换码")}
             className="flex-1 border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
           />
           <button
+            type="button"
             onClick={handleRedeem}
             disabled={redeeming}
             className="px-5 py-2.5 rounded-xl bg-ink text-cream-light text-sm font-medium border-none cursor-pointer disabled:opacity-50 hover:bg-ink-light transition-colors"
           >
-            {redeeming ? "兑换中…" : "兑换"}
+            {redeeming ? t("兑换中…") : t("兑换")}
           </button>
         </div>
       </div>
 
       {/* 查看充值历史 */}
       <button
+        type="button"
         onClick={() => setShowHistory(true)}
         className="flex items-center gap-2 px-4 py-3 rounded-xl border border-border bg-card text-sm text-ink-muted hover:bg-cream-dark cursor-pointer transition-colors w-full text-left"
       >
         <History size={14} />
-        查看充值历史
+        {t("查看充值历史")}
       </button>
 
       <TopupHistoryModal
@@ -868,24 +921,33 @@ function RechargeCard({ topupInfo, plans, currentSub }) {
 
 // ─── 邀请奖励卡（右列） ────────────────────────────────────────────────────────
 function InvitationCard() {
+  const { t } = useTranslation();
   const { user, fetchSelf } = useAuthStore();
-  const [affCode, setAffCode] = useState(user?.aff_code || "");
+  const serverAff = user?.aff_code || "";
+  const [fetchedAff, setFetchedAff] = useState("");
+  const [fetchDone, setFetchDone] = useState(() => !!user?.aff_code);
   const [showTransfer, setShowTransfer] = useState(false);
-  const [codeLoading, setCodeLoading] = useState(false);
+
+  const affCode = serverAff || fetchedAff;
+  const codeLoading = !serverAff && !fetchDone;
 
   useEffect(() => {
-    if (!user?.aff_code) {
-      setCodeLoading(true);
-      api
-        .get("/api/user/aff")
-        .then((res) => {
-          setAffCode(res.data?.aff_code || res.data || "");
-        })
-        .catch(() => {})
-        .finally(() => setCodeLoading(false));
-    } else {
-      setAffCode(user.aff_code);
-    }
+    if (user?.aff_code) return;
+    let cancelled = false;
+    api
+      .get("/api/user/aff")
+      .then((res) => {
+        if (!cancelled) {
+          setFetchedAff(res.data?.aff_code || res.data || "");
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setFetchDone(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user?.aff_code]);
 
   const inviteLink = affCode
@@ -895,8 +957,10 @@ function InvitationCard() {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(inviteLink);
-      toast.success("邀请链接已复制");
-    } catch {}
+      toast.success(t("邀请链接已复制"));
+    } catch {
+      /* clipboard */
+    }
   };
 
   const affQuota = user?.aff_quota || 0;
@@ -906,18 +970,21 @@ function InvitationCard() {
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Gift size={14} className="text-ink-muted" />
-          <h3 className="text-sm font-medium text-ink">邀请奖励</h3>
+          <h3 className="text-sm font-medium text-ink">{t("邀请奖励")}</h3>
         </div>
 
         {/* 邀请统计 Banner */}
         <div className="grid grid-cols-1 gap-2 mb-5">
           {[
-            { label: "待使用邀请额度", value: renderQuota(user?.aff_quota) },
+            { label: t("待使用邀请额度"), value: renderQuota(user?.aff_quota) },
             {
-              label: "历史累计额度",
+              label: t("历史累计额度"),
               value: renderQuota(user?.aff_history_quota),
             },
-            { label: "已邀请人数", value: `${user?.aff_count ?? 0} 人` },
+            {
+              label: t("已邀请人数"),
+              value: t("{{n}} 人", { n: user?.aff_count ?? 0 }),
+            },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -932,10 +999,10 @@ function InvitationCard() {
         {/* 邀请链接 */}
         <div className="mb-4">
           <label className="block text-xs text-ink-muted mb-2">
-            专属邀请链接
+            {t("专属邀请链接")}
           </label>
           {codeLoading ? (
-            <p className="text-xs text-ink-faint">生成中…</p>
+            <p className="text-xs text-ink-faint">{t("生成中…")}</p>
           ) : (
             <div className="flex gap-2">
               <input
@@ -944,11 +1011,12 @@ function InvitationCard() {
                 className="flex-1 border border-border rounded-xl px-3 py-2 bg-cream-light text-ink text-xs outline-none font-mono min-w-0"
               />
               <button
+                type="button"
                 onClick={handleCopyLink}
                 className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-cream-light text-ink-muted hover:bg-cream-dark cursor-pointer transition-colors text-xs"
               >
                 <Copy size={12} />
-                复制
+                {t("复制")}
               </button>
             </div>
           )}
@@ -956,15 +1024,16 @@ function InvitationCard() {
 
         {/* 划转按钮 */}
         <button
+          type="button"
           onClick={() => setShowTransfer(true)}
           disabled={affQuota <= 0}
           className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-ink text-cream-light text-sm font-medium border-none cursor-pointer disabled:opacity-40 hover:bg-ink-light transition-colors"
         >
           <ArrowRightLeft size={14} />
-          划转到余额
+          {t("划转到余额")}
           {affQuota > 0 && (
             <span className="text-xs opacity-80">
-              （{renderQuota(affQuota)}）
+              {t("（{{amount}}）", { amount: renderQuota(affQuota) })}
             </span>
           )}
         </button>
@@ -972,19 +1041,19 @@ function InvitationCard() {
 
       {/* 邀请规则 */}
       <div className="border-t border-border pt-4">
-        <p className="text-xs font-medium text-ink mb-2">邀请规则</p>
+        <p className="text-xs font-medium text-ink mb-2">{t("邀请规则")}</p>
         <ul className="space-y-1.5 text-xs text-ink-muted">
           <li className="flex items-start gap-1.5">
             <span className="shrink-0">·</span>
-            <span>分享专属链接，好友注册即绑定邀请关系</span>
+            <span>{t("分享专属链接，好友注册即绑定邀请关系")}</span>
           </li>
           <li className="flex items-start gap-1.5">
             <span className="shrink-0">·</span>
-            <span>好友充值后，你将获得对应比例的奖励额度</span>
+            <span>{t("好友充值后，你将获得对应比例的奖励额度")}</span>
           </li>
           <li className="flex items-start gap-1.5">
             <span className="shrink-0">·</span>
-            <span>邀请奖励累积后可随时划转到主余额使用</span>
+            <span>{t("邀请奖励累积后可随时划转到主余额使用")}</span>
           </li>
         </ul>
       </div>
@@ -1001,10 +1070,14 @@ function InvitationCard() {
 
 // ─── 账户统计 Banner ───────────────────────────────────────────────────────────
 function AccountStatsBanner({ user }) {
+  const { t } = useTranslation();
   const stats = [
-    { label: "当前余额", value: renderQuota(user?.quota), accent: true },
-    { label: "历史消耗", value: renderQuota(user?.used_quota) },
-    { label: "请求次数", value: (user?.request_count || 0).toLocaleString() },
+    { label: t("当前余额"), value: renderQuota(user?.quota), accent: true },
+    { label: t("历史消耗"), value: renderQuota(user?.used_quota) },
+    {
+      label: t("请求次数"),
+      value: (user?.request_count || 0).toLocaleString(),
+    },
   ];
   return (
     <div className="grid grid-cols-3 gap-3 mb-5">
@@ -1031,6 +1104,7 @@ function AccountStatsBanner({ user }) {
 
 // ─── 主页面 ───────────────────────────────────────────────────────────────────
 export default function WalletPage() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const [topupInfo, setTopupInfo] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -1066,14 +1140,14 @@ export default function WalletPage() {
   if (loading) {
     return (
       <div className="text-center py-16">
-        <p className="text-sm text-ink-muted">加载中…</p>
+        <p className="text-sm text-ink-muted">{t("加载中…")}</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h2 className="text-base font-medium text-ink mb-5">钱包管理</h2>
+      <h2 className="text-base font-medium text-ink mb-5">{t("钱包管理")}</h2>
       <AccountStatsBanner user={user} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
