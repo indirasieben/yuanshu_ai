@@ -664,7 +664,7 @@ export default function UsageStats() {
         start_timestamp: toUnixSec(p.startTime),
         end_timestamp: toUnixSec(p.endTime),
       });
-      const data = await api.get(`/api/data/self/?${qs}`);
+      const data = await api.get(`/api/data/self?${qs}`);
       if (data?.success) {
         setRawData(Array.isArray(data.data) ? data.data : []);
       }
@@ -751,16 +751,31 @@ export default function UsageStats() {
       ) : (
         <div className="grid grid-cols-2 gap-3 mb-5">
           {/* 账户数据 */}
+
           <StatCard
             label={t("当前余额")}
-            value={renderQuota(user?.quota)}
-            sub={t("账户数据")}
+            value={
+              <span>
+                <span>{formatNum(user?.quota)}</span>
+                <span className="text-xs text-ink-faint ml-1">
+                  {t("ytoken")}
+                </span>
+              </span>
+            }
+            sub={renderQuota(user?.quota)}
             accent="bg-blue-50/60"
           />
           <StatCard
             label={t("历史消耗")}
-            value={renderQuota(user?.used_quota)}
-            sub={t("账户数据")}
+            value={
+              <span>
+                <span>{formatNum(user?.used_quota)}</span>
+                <span className="text-xs text-ink-faint ml-1">
+                  {t("ytoken")}
+                </span>
+              </span>
+            }
+            sub={renderQuota(user?.used_quota)}
             accent="bg-blue-50/60"
           />
           {/* 使用统计 */}
@@ -779,8 +794,15 @@ export default function UsageStats() {
           {/* 资源消耗 */}
           <StatCard
             label={t("时间范围统计额度")}
-            value={renderQuota(totalQuota)}
-            sub={t("资源消耗")}
+            value={
+              <span>
+                <span>{formatNum(totalQuota)}</span>
+                <span className="text-xs text-ink-faint ml-1">
+                  {t("ytoken")}
+                </span>
+              </span>
+            }
+            sub={renderQuota(totalQuota)}
             accent="bg-amber-50/60"
           />
           <StatCard

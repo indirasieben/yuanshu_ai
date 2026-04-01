@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { PanelLeftOpen, Download, Bell, User, LogOut } from "lucide-react";
+import {
+  PanelLeftOpen,
+  Download,
+  Bell,
+  User,
+  LogOut,
+  Menu,
+} from "lucide-react";
 import Sidebar from "../components/chat/Sidebar";
 import ChatArea from "../components/chat/ChatArea";
 import InputArea from "../components/chat/InputArea";
@@ -38,6 +45,7 @@ export default function ChatPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
@@ -52,7 +60,7 @@ export default function ChatPage() {
   } = useChatStore();
 
   const { fetchModels } = useModelStore();
-  const { ensureApiToken, user, logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const status = useStatusStore((s) => s.status);
 
   const unreadNoticeHasUnread = (() => {
@@ -79,9 +87,26 @@ export default function ChatPage() {
 
   // 初始化：刷新模型列表 & 确保有 API token
   useEffect(() => {
-    ensureApiToken();
     fetchModels();
-  }, [ensureApiToken, fetchModels]);
+  }, [fetchModels]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const updateLayout = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile((prevMobile) => {
+        if (prevMobile !== mobile) {
+          setSidebarCollapsed(mobile);
+        }
+        return mobile;
+      });
+    };
+
+    updateLayout();
+    window.addEventListener("resize", updateLayout);
+    return () => window.removeEventListener("resize", updateLayout);
+  }, []);
 
   const handleSend = (text, options) => {
     sendMessage(text, options);
@@ -113,24 +138,39 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-cream overflow-hidden">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onOpenSubscription={() => setShowSubscription(true)}
-      />
+    <div className="flex h-dvh min-h-0 bg-cream overflow-hidden">
+      {isMobile && !sidebarCollapsed && (
+        <button
+          aria-label={t("关闭侧边栏")}
+          className="fixed inset-0 z-30 bg-black/35 border-none p-0 cursor-pointer"
+          onClick={() => setSidebarCollapsed(true)}
+        />
+      )}
+      <div
+        className={`${
+          isMobile
+            ? "fixed inset-y-0 left-0 z-40 transition-transform duration-300"
+            : "relative"
+        } ${isMobile && sidebarCollapsed ? "-translate-x-full" : "translate-x-0"}`}
+      >
+        <Sidebar
+          collapsed={isMobile ? false : sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onOpenSubscription={() => setShowSubscription(true)}
+        />
+      </div>
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-cream-light/80 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border bg-cream-light/80 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            {sidebarCollapsed && (
+            {(sidebarCollapsed || isMobile) && (
               <button
                 onClick={() => setSidebarCollapsed(false)}
                 className="p-1.5 hover:bg-cream-dark rounded-lg text-ink-muted hover:text-ink bg-transparent border-none cursor-pointer transition-colors"
               >
-                <PanelLeftOpen size={16} />
+                {isMobile ? <Menu size={17} /> : <PanelLeftOpen size={16} />}
               </button>
             )}
-            <h1 className="text-[13px] font-medium text-ink truncate">
+            <h1 className="text-[12px] sm:text-[13px] font-medium text-ink truncate max-w-[56vw] sm:max-w-none">
               {displayConversationTitle(
                 activeConversation?.title || DEFAULT_CHAT_TITLE_I18N_KEY,
               )}
@@ -143,7 +183,7 @@ export default function ChatPage() {
               className="flex items-center gap-1 px-2.5 py-1 text-[11px] text-ink-muted hover:text-ink hover:bg-cream-dark rounded-md bg-transparent border-none cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Download size={12} />
-              {t("导出")}
+              <span className="hidden sm:inline">{t("导出")}</span>
             </button>
 
             <div className="w-px h-4 bg-border mx-1" />

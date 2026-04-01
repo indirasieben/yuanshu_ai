@@ -24,7 +24,10 @@ export default function InputArea({
 
   const handleSend = () => {
     if (!text.trim() || isStreaming) return;
-    onSend(text, deepThinking ? { reasoning_effort: "high" } : undefined);
+    const options = {};
+    if (deepThinking) options.reasoning_effort = "high";
+    if (webSearch) options.web_search = true;
+    onSend(text, Object.keys(options).length > 0 ? options : undefined);
     setText("");
   };
 
@@ -72,7 +75,7 @@ export default function InputArea({
                 className={toggleToolClass(webSearch)}
                 aria-pressed={webSearch}
                 onClick={() => setWebSearch((v) => !v)}
-                title={t("联网搜索 (即将支持)")}
+                title={t("联网搜索")}
               >
                 <Globe size={14} />
                 <span>{t("联网搜索")}</span>

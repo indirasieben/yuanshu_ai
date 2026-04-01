@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Routes, Route, Navigate, NavLink } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
+  Menu,
   SlidersHorizontal,
   BarChart3,
   Wallet,
@@ -54,6 +55,8 @@ const NAV_DEFS = [
 export default function AccountPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
+  const [isMobile, setIsMobile] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   const navItems = useMemo(
     () =>
@@ -64,39 +67,89 @@ export default function AccountPage() {
     [t],
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const updateLayout = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setNavOpen(false);
+    };
+
+    updateLayout();
+    window.addEventListener("resize", updateLayout);
+    return () => window.removeEventListener("resize", updateLayout);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-dvh bg-cream">
       <div className="sticky top-0 z-10 bg-cream-light/90 backdrop-blur-sm border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
+          {isMobile && (
+            <button
+              onClick={() => setNavOpen(true)}
+              className="p-1.5 hover:bg-cream-dark rounded-lg text-ink-muted hover:text-ink bg-transparent border-none cursor-pointer transition-colors"
+              aria-label={t("打开导航")}
+            >
+              <Menu size={17} />
+            </button>
+          )}
           <Link
             to="/chat"
-            className="text-ink-muted hover:text-ink transition-colors no-underline flex items-center gap-1 text-sm"
+            className="text-ink-muted hover:text-ink transition-colors no-underline flex items-center gap-1 text-xs sm:text-sm shrink-0"
           >
             <ArrowLeft size={16} />
             {t("返回")}
           </Link>
-          <h1 className="text-base font-medium text-ink">{t("账号管理")}</h1>
+          <h1 className="text-sm sm:text-base font-medium text-ink truncate">
+            {t("账号管理")}
+          </h1>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6 flex gap-8">
-        <div className="w-48 shrink-0">
-          <div className="mb-6">
-            <div className="w-10 h-10 rounded-full bg-ink text-cream-light flex items-center justify-center text-sm font-medium">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-col md:flex-row gap-4 sm:gap-6 md:gap-8">
+        {isMobile && navOpen && (
+          <button
+            aria-label={t("关闭导航")}
+            className="fixed inset-0 z-30 bg-black/35 border-none p-0 cursor-pointer"
+            onClick={() => setNavOpen(false)}
+          />
+        )}
+
+        <div
+          className={`${
+            isMobile
+              ? "fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] bg-cream p-4 border-r border-border transition-transform duration-300 overflow-y-auto"
+              : "md:w-48 md:shrink-0"
+          } ${isMobile && !navOpen ? "-translate-x-full" : "translate-x-0"}`}
+        >
+          <div className="mb-4 md:mb-6 flex items-center md:block gap-3">
+            <div className="w-10 h-10 rounded-full bg-ink text-cream-light flex items-center justify-center text-sm font-medium shrink-0">
               {(user?.display_name || user?.username || "U")[0].toUpperCase()}
             </div>
-            <p className="text-sm font-medium text-ink mt-2">
-              {user?.display_name || user?.username || t("用户")}
-            </p>
-            <p className="text-xs text-ink-muted">{user?.email || ""}</p>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink md:mt-2 truncate">
+                {user?.display_name || user?.username || t("用户")}
+              </p>
+              <p className="text-xs text-ink-muted truncate">{user?.email || ""}</p>
+            </div>
           </div>
-          <nav className="space-y-1">
+          <nav
+            className={
+              isMobile
+                ? "space-y-1"
+                : "flex md:block gap-2 md:space-y-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-1 px-1"
+            }
+          >
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={`/account/${item.path}`}
+                onClick={() => {
+                  if (isMobile) setNavOpen(false);
+                }}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 px-3 py-2 rounded-lg text-sm no-underline transition-colors ${
+                  `flex items-center gap-2 px-3 py-2 rounded-lg text-sm no-underline transition-colors whitespace-nowrap shrink-0 ${
                     isActive
                       ? "bg-cream-dark text-ink font-medium"
                       : "text-ink-muted hover:text-ink hover:bg-cream-dark/50"
@@ -110,7 +163,7 @@ export default function AccountPage() {
           </nav>
         </div>
 
-        <div className="flex-1 bg-card rounded-xl border border-border p-6">
+        <div className="flex-1 bg-card rounded-xl border border-border p-4 sm:p-6 min-w-0">
           <Routes>
             <Route index element={<Navigate to="usage" replace />} />
             <Route path="usage" element={<UsageStats />} />

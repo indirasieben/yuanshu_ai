@@ -73,6 +73,15 @@ function ChangePasswordModal({ open, onClose }) {
   const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const handleClose = () => {
+    setOldPwd("");
+    setNewPwd("");
+    setConfirmPwd("");
+    setShowOld(false);
+    setShowNew(false);
+    onClose?.();
+  };
+
   const handleSave = async () => {
     if (!newPwd) {
       toast.error(t("新密码不能为空"));
@@ -93,10 +102,7 @@ function ChangePasswordModal({ open, onClose }) {
         password: newPwd,
       });
       toast.success(t("密码修改成功"));
-      onClose();
-      setOldPwd("");
-      setNewPwd("");
-      setConfirmPwd("");
+      handleClose();
     } catch (err) {
       toast.error(err.message || t("修改失败"));
     } finally {
@@ -105,7 +111,7 @@ function ChangePasswordModal({ open, onClose }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={t("修改密码")}>
+    <Modal open={open} onClose={handleClose} title={t("修改密码")}>
       <div className="space-y-3">
         <div>
           <label className="block text-xs text-ink-muted mb-1.5">
@@ -164,7 +170,7 @@ function ChangePasswordModal({ open, onClose }) {
         <div className="flex justify-end gap-2 pt-1">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 rounded-lg text-sm text-ink-muted border border-border bg-cream-light hover:bg-cream-dark cursor-pointer transition-colors"
           >
             {t("取消")}
@@ -400,6 +406,7 @@ function DeleteAccountModal({ open, onClose, username }) {
 function EditDisplayNameModal({ open, onClose, currentName, onSaved }) {
   const { t } = useTranslation();
   const [name, setName] = useState(currentName || "");
+  const [originalPassword, setOriginalPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -407,12 +414,20 @@ function EditDisplayNameModal({ open, onClose, currentName, onSaved }) {
       toast.error(t("名称不能为空"));
       return;
     }
+    if (!originalPassword.trim()) {
+      toast.error(t("请输入密码"));
+      return;
+    }
     setSaving(true);
     try {
-      await api.put("/api/user/self", { display_name: name.trim() });
+      await api.put("/api/user/self", {
+        display_name: name.trim(),
+        original_password: originalPassword,
+      });
       toast.success(t("显示名称已更新"));
       onSaved(name.trim());
       onClose();
+      setOriginalPassword("");
     } catch (err) {
       toast.error(err.message || t("更新失败"));
     } finally {
@@ -430,7 +445,6 @@ function EditDisplayNameModal({ open, onClose, currentName, onSaved }) {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
             maxLength={30}
             autoFocus
             className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
@@ -439,6 +453,20 @@ function EditDisplayNameModal({ open, onClose, currentName, onSaved }) {
           <p className="text-xs text-ink-faint mt-1.5">
             {t("仅修改显示名称，不影响邮箱、账号登录凭据")}
           </p>
+        </div>
+        <div>
+          <label className="block text-xs text-ink-muted mb-1.5">
+            {t("密码")}
+          </label>
+          <input
+            type="password"
+            value={originalPassword}
+            onChange={(e) => setOriginalPassword(e.target.value)}
+            maxLength={30}
+            autoFocus
+            className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted"
+            placeholder={t("输入你的密码")}
+          />
         </div>
         <div className="flex justify-end gap-2">
           <button
@@ -486,14 +514,14 @@ function UserInfoHeader({ user }) {
             <span className="text-base font-semibold text-ink">
               {localName || t("用户")}
             </span>
-            <button
+            {/* <button
               type="button"
               onClick={() => setShowEditName(true)}
               className="p-1 rounded-md text-ink-faint hover:text-ink hover:bg-cream-dark bg-transparent border-none cursor-pointer transition-colors"
               title={t("修改显示名称")}
             >
               <Pencil size={13} />
-            </button>
+            </button> */}
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${roleInfo.color}`}
             >
@@ -519,12 +547,28 @@ function UserInfoHeader({ user }) {
         {[
           {
             labelKey: "当前余额",
-            value: renderQuota(user?.quota),
+            value: (
+              <span>
+                <span>{Number(user?.quota).toLocaleString()}</span>
+                <span className="text-xs text-ink-faint ml-1">
+                  {t("ytoken")}
+                </span>
+              </span>
+            ),
             badge: true,
+            sub: renderQuota(user?.quota),
           },
           {
             labelKey: "历史消耗",
-            value: renderQuota(user?.used_quota),
+            value: (
+              <span>
+                <span>{Number(user?.used_quota).toLocaleString()}</span>
+                <span className="text-xs text-ink-faint ml-1">
+                  {t("ytoken")}
+                </span>
+              </span>
+            ),
+            sub: renderQuota(user?.used_quota),
           },
           {
             labelKey: "请求次数",
@@ -548,6 +592,9 @@ function UserInfoHeader({ user }) {
               )}
             </div>
             <span className="text-sm font-medium text-ink">{stat.value}</span>
+            {stat.sub && (
+              <p className="text-xs text-ink-muted mt-1">{stat.sub}</p>
+            )}
           </div>
         ))}
       </div>
@@ -1416,8 +1463,7 @@ function OtherSettingsCard({ user }) {
           : user?.setting || {};
       return {
         notify_type: setting.notify_type || "email",
-        quota_warning_threshold:
-          (setting.quota_warning_threshold || 500000) / 500000,
+        quota_warning_threshold: setting.quota_warning_threshold || 500000,
         notification_email: setting.notification_email || "",
         webhook_url: setting.webhook_url || "",
         webhook_secret: setting.webhook_secret || "",
@@ -1432,7 +1478,7 @@ function OtherSettingsCard({ user }) {
     } catch {
       return {
         notify_type: "email",
-        quota_warning_threshold: 1,
+        quota_warning_threshold: 500000,
         notification_email: "",
         webhook_url: "",
         webhook_secret: "",
@@ -1449,7 +1495,7 @@ function OtherSettingsCard({ user }) {
   const [form, setForm] = useState(getInitialForm);
   const [activeTab, setActiveTab] = useState("notify");
   const [saving, setSaving] = useState(false);
-  const { symbol } = getCurrencyConfig();
+  const { symbol, rate } = getCurrencyConfig();
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
@@ -1457,9 +1503,6 @@ function OtherSettingsCard({ user }) {
     try {
       await api.put("/api/user/setting", {
         ...form,
-        quota_warning_threshold: Math.round(
-          form.quota_warning_threshold * 500000,
-        ),
       });
       toast.success(t("设置已保存"));
     } catch (err) {
@@ -1471,7 +1514,7 @@ function OtherSettingsCard({ user }) {
 
   const tabs = [
     { key: "notify", labelKey: "通知配置" },
-    { key: "price", labelKey: "价格设置" },
+    // { key: "price", labelKey: "价格设置" },
     { key: "privacy", labelKey: "隐私设置" },
   ];
 
@@ -1483,10 +1526,10 @@ function OtherSettingsCard({ user }) {
   ];
 
   const thresholdPresets = [
-    { label: `${symbol}10`, v: 10 },
-    { label: `${symbol}100`, v: 100 },
-    { label: `${symbol}500`, v: 500 },
-    { label: `${symbol}1000`, v: 1000 },
+    { label: `${symbol}10`, v: Math.floor((10 / rate) * 500000) },
+    { label: `${symbol}100`, v: Math.floor((100 / rate) * 500000) },
+    { label: `${symbol}500`, v: Math.floor((500 / rate) * 500000) },
+    { label: `${symbol}1000`, v: Math.floor((1000 / rate) * 500000) },
   ];
 
   const inputCls =
@@ -1557,7 +1600,9 @@ function OtherSettingsCard({ user }) {
 
           <div>
             <label className="block text-xs text-ink-muted mb-2">
-              {t(`额度预警阈值（${symbol}）`)}
+              {t("额度预警阈值（{{quota}}）", {
+                quota: renderQuota(form.quota_warning_threshold),
+              })}
             </label>
             <div className="flex gap-2 flex-wrap mb-2">
               {thresholdPresets.map((p) => (
@@ -1575,20 +1620,25 @@ function OtherSettingsCard({ user }) {
                 </button>
               ))}
             </div>
-            <input
-              type="number"
-              value={form.quota_warning_threshold}
-              min="0"
-              step="0.1"
-              onChange={(e) =>
-                update(
-                  "quota_warning_threshold",
-                  parseFloat(e.target.value) || 0,
-                )
-              }
-              className={inputCls}
-              placeholder={t("自定义阈值")}
-            />
+            <div className="relative">
+              <input
+                type="number"
+                value={form.quota_warning_threshold}
+                min="0"
+                step="1"
+                onChange={(e) =>
+                  update(
+                    "quota_warning_threshold",
+                    parseFloat(e.target.value) || 0,
+                  )
+                }
+                className={`${inputCls} pr-16`}
+                placeholder={t("自定义阈值")}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-muted">
+                ytoken
+              </span>
+            </div>
           </div>
 
           {form.notify_type === "email" && (

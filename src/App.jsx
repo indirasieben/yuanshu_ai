@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "./stores/authStore";
 import { useStatusStore } from "./stores/statusStore";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import ConfirmModal from "./components/common/ConfirmModal";
 
 // 直接导入高频页面
 import LandingPage from "./pages/LandingPage";
@@ -34,10 +35,11 @@ function LoadingFallback() {
 
 export default function App() {
   useTranslation();
-  const { isAuthenticated, fetchSelf } = useAuthStore();
+  const { isAuthenticated, fetchSelf, user } = useAuthStore();
   const { fetchStatus } = useStatusStore();
   const location = useLocation();
   const prevPathRef = useRef(location.pathname);
+  const fetchedSelfForUserRef = useRef(null);
 
   // 应用启动时，如果有 token 则验证登录状态
   useEffect(() => {
@@ -49,9 +51,17 @@ export default function App() {
       pathname.startsWith("/account");
 
     if (isAuthenticated) {
-      if (shouldFetchSelf) fetchSelf();
+      if (shouldFetchSelf) {
+        const uid = user?.id ?? "__pending__";
+        if (fetchedSelfForUserRef.current !== uid) {
+          fetchedSelfForUserRef.current = uid;
+          void fetchSelf();
+        }
+      }
+    } else {
+      fetchedSelfForUserRef.current = null;
     }
-  }, [isAuthenticated, fetchSelf, location.pathname]);
+  }, [isAuthenticated, fetchSelf, location.pathname, user?.id]);
 
   // 站点打开的第一次请求拉取系统状态（包含公开页面）
   useEffect(() => {
@@ -84,6 +94,7 @@ export default function App() {
           },
         }}
       />
+      <ConfirmModal />
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* 公开页面 */}

@@ -131,7 +131,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <Link to="/" className="inline-block no-underline">
             <h1 className="font-serif text-2xl italic text-ink">
-              {t("元枢 AI")}
+              <img src="/logo.png" alt={t("元枢 AI")} className="h-16 w-auto" />
             </h1>
           </Link>
           <p className="text-ink-muted text-sm mt-2">{t("创建你的账号")}</p>
@@ -172,8 +172,8 @@ export default function RegisterPage() {
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-cream-light text-ink text-sm outline-none focus:border-ink-muted transition-colors"
                 autoComplete="username"
               />
-              <p className="text-xs text-ink-muted mt-1.5">
-                {t("最多 {{cur}} 个字符（{{max}}）", {
+              <p className="text-xs text-right text-ink-muted mt-1.5 pr-2">
+                {t("{{cur}}/{{max}}", {
                   cur: username.length,
                   max: USERNAME_MAX_LEN,
                 })}

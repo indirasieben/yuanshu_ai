@@ -10,7 +10,17 @@ import {
   Activity,
 } from "lucide-react";
 import { api } from "../../lib/api";
-import { renderQuota } from "../../helpers";
+import {
+  getModelCategories,
+  renderQuota,
+  getLogOther,
+  renderClaudeLogContent,
+  renderLogContent,
+} from "../../helpers";
+import { Tag, Avatar, Tooltip, Modal, Space } from "@douyinfe/semi-ui";
+import { IconHelpCircle } from "@douyinfe/semi-icons";
+import toast from "react-hot-toast";
+import { copy } from "../../helpers/utils";
 
 const LOG_TYPE_DEFS = [
   { value: 0, labelKey: "全部", color: "" },
@@ -66,7 +76,7 @@ function toDatetimeLocal(date) {
 const PAGE_SIZES = [10, 20, 50];
 
 function StatCard(props) {
-  const { icon: Icon, label, value, loading, accent } = props;
+  const { icon: Icon, label, value, loading, accent, sub } = props;
   return (
     <div className="bg-card rounded-xl border border-border p-4 flex items-start gap-3">
       <div className={`mt-0.5 p-2 rounded-lg ${accent}`}>
@@ -77,7 +87,10 @@ function StatCard(props) {
         {loading ? (
           <div className="h-5 w-16 bg-cream-dark rounded-md mt-1 animate-pulse" />
         ) : (
-          <p className="text-base font-medium text-ink mt-0.5">{value}</p>
+          <>
+            <p className="text-base font-medium text-ink mt-0.5">{value}</p>
+            {sub && <p className="text-xs text-ink-muted mt-1">{sub}</p>}
+          </>
         )}
       </div>
     </div>
@@ -97,13 +110,73 @@ function TypeBadge({ typeVal, t }) {
   );
 }
 
-function buildExpandItems(log, t, renderQuotaFn) {
-  let other = {};
-  try {
-    other = JSON.parse(log.other || "{}");
-  } catch {
-    void 0;
+function renderIsStream(bool, t) {
+  if (bool) {
+    return (
+      <Tag color="blue" shape="circle">
+        {t("流")}
+      </Tag>
+    );
+  } else {
+    return (
+      <Tag color="purple" shape="circle">
+        {t("非流")}
+      </Tag>
+    );
   }
+}
+
+function renderUseTime(type, t) {
+  const time = parseInt(type);
+  if (time < 101) {
+    return (
+      <Tag color="green" shape="circle">
+        {time} s
+      </Tag>
+    );
+  } else if (time < 300) {
+    return (
+      <Tag color="orange" shape="circle">
+        {time} s
+      </Tag>
+    );
+  } else {
+    return (
+      <Tag color="red" shape="circle">
+        {time} s
+      </Tag>
+    );
+  }
+}
+
+function renderFirstUseTime(type, t) {
+  let time = parseFloat(type) / 1000.0;
+  time = time.toFixed(1);
+  if (time < 3) {
+    return (
+      <Tag color="green" shape="circle">
+        {time} s
+      </Tag>
+    );
+  } else if (time < 10) {
+    return (
+      <Tag color="orange" shape="circle">
+        {time} s
+      </Tag>
+    );
+  } else {
+    return (
+      <Tag color="red" shape="circle">
+        {time} s
+      </Tag>
+    );
+  }
+}
+
+function buildExpandItems(log, t, renderQuotaFn) {
+  const other = getLogOther(log.other);
+  const billingDisplayMode =
+    localStorage.getItem("billing_display_mode") || "price";
   const items = [];
   if (log.request_id)
     items.push({ label: "Request ID", value: log.request_id });
@@ -114,11 +187,56 @@ function buildExpandItems(log, t, renderQuotaFn) {
     });
   if (other.request_path)
     items.push({ label: t("请求路径"), value: other.request_path });
-  if (other.frt)
+  if (log.use_time > 0)
+    items.push({
+      label: t("用时"),
+      value: (
+        <Space>
+          <span>{renderUseTime(log.use_time, t)}</span>
+          <span>{renderIsStream(log.is_stream, t)}</span>
+        </Space>
+      ),
+    });
+  if (log.is_stream && other.frt > 0)
     items.push({
       label: t("首字时间"),
-      value: `${other.frt} ms`,
+      value: <span>{renderFirstUseTime(other.frt, t)}</span>,
     });
+  if (log.type === 2) {
+    items.push({
+      label: t("日志详情"),
+      value: other?.claude
+        ? renderClaudeLogContent(
+            other?.model_ratio,
+            other.completion_ratio,
+            other.model_price,
+            other.group_ratio,
+            other?.user_group_ratio,
+            other.cache_ratio || 1.0,
+            other.cache_creation_ratio || 1.0,
+            other.cache_creation_tokens_5m || 0,
+            other.cache_creation_ratio_5m || other.cache_creation_ratio || 1.0,
+            other.cache_creation_tokens_1h || 0,
+            other.cache_creation_ratio_1h || other.cache_creation_ratio || 1.0,
+            billingDisplayMode,
+          )
+        : renderLogContent(
+            other?.model_ratio,
+            other.completion_ratio,
+            other.model_price,
+            other.group_ratio,
+            other?.user_group_ratio,
+            other.cache_ratio || 1.0,
+            false,
+            1.0,
+            other.web_search || false,
+            other.web_search_call_count || 0,
+            other.file_search || false,
+            other.file_search_call_count || 0,
+            billingDisplayMode,
+          ),
+    });
+  }
   if (other.cache_tokens > 0)
     items.push({
       label: t("缓存读 Tokens"),
@@ -129,21 +247,21 @@ function buildExpandItems(log, t, renderQuotaFn) {
       label: t("缓存写 Tokens"),
       value: other.cache_creation_tokens,
     });
-  if (other.group_ratio != null)
-    items.push({
-      label: t("分组倍率"),
-      value: `× ${other.group_ratio}`,
-    });
-  if (other.model_ratio != null)
-    items.push({
-      label: t("模型输入倍率"),
-      value: `× ${other.model_ratio}`,
-    });
-  if (other.completion_ratio != null)
-    items.push({
-      label: t("模型输出倍率"),
-      value: `× ${other.completion_ratio}`,
-    });
+  // if (other.group_ratio != null)
+  //   items.push({
+  //     label: t("分组倍率"),
+  //     value: `× ${other.group_ratio}`,
+  //   });
+  // if (other.model_ratio != null)
+  //   items.push({
+  //     label: t("模型输入倍率"),
+  //     value: `× ${other.model_ratio}`,
+  //   });
+  // if (other.completion_ratio != null)
+  //   items.push({
+  //     label: t("模型输出倍率"),
+  //     value: `× ${other.completion_ratio}`,
+  //   });
   if (other.reasoning_effort)
     items.push({
       label: "Reasoning Effort",
@@ -158,14 +276,24 @@ function buildExpandItems(log, t, renderQuotaFn) {
     if (other.subscription_consumed != null)
       items.push({
         label: t("订阅抵扣"),
-        value: renderQuotaFn(other.subscription_consumed),
+        value: renderQuotaFn(other.subscription_consumed, 6),
       });
     if (other.subscription_remain != null)
       items.push({
         label: t("订阅剩余"),
         value: renderQuotaFn(other.subscription_remain),
       });
+  } else {
+    items.push({
+      label: t("花费"),
+      value: `${Number(log.quota).toLocaleString()} ytoken = ${renderQuotaFn(log.quota, 6)}`,
+    });
   }
+  if (log.content)
+    items.push({
+      label: t("其他详情"),
+      value: log.content,
+    });
   return items;
 }
 
@@ -227,7 +355,7 @@ export default function UsageLogs() {
       if (f.modelName) params.set("model_name", f.modelName);
       if (f.startTime) params.set("start_timestamp", toUnixSec(f.startTime));
       if (f.endTime) params.set("end_timestamp", toUnixSec(f.endTime));
-      const data = await api.get(`/api/log/self/?${params}`);
+      const data = await api.get(`/api/log/self?${params}`);
       if (data?.success) {
         const items = data.data?.items ?? data.data ?? [];
         setLogs(Array.isArray(items) ? items : []);
@@ -288,17 +416,153 @@ export default function UsageLogs() {
     fetchLogs(newFilters, 1, pageSize);
   };
 
+  // Copy text function
+  const copyText = async (e, text) => {
+    e.stopPropagation();
+    if (await copy(text)) {
+      toast.success("已复制：" + text);
+    } else {
+      Modal.error({ title: t("无法复制到剪贴板，请手动复制"), content: text });
+    }
+  };
+
+  // Render model limits column
+  const renderModelLimits = (text) => {
+    const modelName = (text || "").trim();
+    if (!modelName) return null;
+    const categories = getModelCategories(t);
+
+    let matchedCategory = null;
+    Object.entries(categories).some(([key, category]) => {
+      if (key === "all") return;
+      if (!category.icon || !category.filter) return;
+      if (category.filter({ model_name: modelName })) {
+        matchedCategory = { key, category };
+        return true;
+      }
+      return false;
+    });
+
+    if (!matchedCategory) {
+      return (
+        <Tooltip key="unknown" content={modelName} position="top" showArrow>
+          <Avatar
+            size="extra-extra-small"
+            alt="unknown"
+            onClick={(event) => {
+              copyText(event, modelName);
+            }}
+          >
+            {t("其他")}
+          </Avatar>
+        </Tooltip>
+      );
+    }
+
+    const { key, category } = matchedCategory;
+    return (
+      <Tooltip key={key} content={modelName} position="top" showArrow>
+        <span>
+          <Avatar
+            size="extra-extra-small"
+            alt={category.label}
+            color="transparent"
+            onClick={(event) => {
+              copyText(event, modelName);
+            }}
+          >
+            {category.icon}
+          </Avatar>
+        </span>
+      </Tooltip>
+    );
+  };
+
+  const renderUseTimeDetail = (text, record, index) => {
+    if (record.is_stream) {
+      let other = getLogOther(record.other);
+      return (
+        <>
+          <Space>
+            {renderUseTime(text, t)}
+            {renderFirstUseTime(other?.frt, t)}
+            {renderIsStream(record.is_stream, t)}
+          </Space>
+        </>
+      );
+    } else {
+      return (
+        <>
+          <Space>
+            {renderUseTime(text, t)}
+            {renderIsStream(record.is_stream, t)}
+          </Space>
+        </>
+      );
+    }
+  };
+
+  const renderBillingTag = (record, t) => {
+    const other = getLogOther(record.other);
+    if (other?.billing_source === "subscription") {
+      return (
+        <Tag color="green" shape="circle">
+          {t("订阅抵扣")}
+        </Tag>
+      );
+    }
+    return null;
+  };
+
+  const renderQuotaTag = (text, record, index) => {
+    if (
+      !(
+        record.type === 0 ||
+        record.type === 2 ||
+        record.type === 5 ||
+        record.type === 6
+      )
+    ) {
+      return <></>;
+    }
+    const other = getLogOther(record.other);
+    const isSubscription = other?.billing_source === "subscription";
+    if (isSubscription) {
+      // Subscription billed: show only tag (no $0), but keep tooltip for equivalent cost.
+      return (
+        <Tooltip
+          content={`${t("由订阅抵扣")}：${Number(text).toLocaleString()} ytoken`}
+        >
+          <span>{renderBillingTag(record, t)}</span>
+        </Tooltip>
+      );
+    }
+    return <>{Number(text).toLocaleString()} ytoken</>;
+  };
+
   return (
     <div>
       <h2 className="text-base font-medium text-ink mb-5">{t("使用日志")}</h2>
 
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
         <StatCard
           icon={Zap}
           label={t("消耗额度")}
-          value={stat ? renderQuota(stat.quota) : "--"}
+          value={
+            stat ? (
+              <span>
+                <span>{Number(stat.quota).toLocaleString()}</span>
+                <span className="text-xs text-ink-faint ml-1">
+                  {t("ytoken")}
+                </span>
+              </span>
+            ) : (
+              "--"
+            )
+          }
           loading={statLoading}
           accent="bg-blue-50 text-blue-500"
+          sub={stat ? renderQuota(stat.quota) : null}
         />
         <StatCard
           icon={Activity}
@@ -441,6 +705,19 @@ export default function UsageLogs() {
                 <th className="px-4 py-3 text-right text-ink-muted font-medium whitespace-nowrap">
                   {t("花费")}
                 </th>
+                <th className="px-4 py-3 text-right text-ink-muted font-medium whitespace-nowrap">
+                  <div className="flex items-center gap-1 justify-end">
+                    {t("IP")}
+                    <Tooltip
+                      content={t(
+                        "只有当用户设置开启IP记录时，才会进行请求和错误类型日志的IP记录",
+                      )}
+                    >
+                      <IconHelpCircle className="text-gray-400 cursor-help" />
+                    </Tooltip>
+                  </div>
+                </th>
+
                 <th className="px-4 py-3 text-center text-ink-muted font-medium whitespace-nowrap">
                   {t("详情")}
                 </th>
@@ -468,18 +745,23 @@ export default function UsageLogs() {
                     </td>
                     <td className="px-4 py-3">
                       {log.model_name ? (
-                        <span
-                          className="inline-block max-w-[130px] truncate px-2 py-0.5 rounded-md bg-cream-dark text-ink font-mono"
-                          title={log.model_name}
-                        >
-                          {log.model_name}
-                        </span>
+                        renderModelLimits(log.model_name)
                       ) : (
                         <span className="text-ink-faint">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-ink-muted">
-                      {log.token_name || (
+                      {log.token_name ? (
+                        <Tag
+                          color="white"
+                          shape="circle"
+                          onClick={(event) => {
+                            copyText(event, log.token_name);
+                          }}
+                        >
+                          {log.token_name}
+                        </Tag>
+                      ) : (
                         <span className="text-ink-faint">—</span>
                       )}
                     </td>
@@ -497,11 +779,31 @@ export default function UsageLogs() {
                         <span className="text-ink-faint">—</span>
                       )}
                     </td>
+
                     <td className="px-4 py-3 text-right text-ink tabular-nums whitespace-nowrap">
                       {log.quota > 0 ? (
                         <span className="font-medium">
-                          {renderQuota(log.quota)}
+                          {renderQuotaTag(log.quota, log, idx)}
                         </span>
+                      ) : (
+                        <span className="text-ink-faint">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right text-ink tabular-nums whitespace-nowrap">
+                      {log.ip ? (
+                        <Tooltip content={log.ip}>
+                          <span>
+                            <Tag
+                              color="orange"
+                              shape="circle"
+                              onClick={(event) => {
+                                copyText(event, log.ip);
+                              }}
+                            >
+                              {log.ip}
+                            </Tag>
+                          </span>
+                        </Tooltip>
                       ) : (
                         <span className="text-ink-faint">—</span>
                       )}
@@ -526,26 +828,23 @@ export default function UsageLogs() {
                       key={`expand-${key}`}
                       className="bg-cream-light/40 border-b border-border"
                     >
-                      <td colSpan={8} className="px-6 py-3">
-                        <div className="flex flex-wrap gap-x-8 gap-y-1.5">
-                          {expandItems.map((item) => (
-                            <div
-                              key={item.label}
-                              className="flex items-center gap-2"
-                            >
-                              <span className="text-ink-faint">
-                                {item.label}：
-                              </span>
-                              <span className="text-ink font-mono break-all">
-                                {item.value}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                        {log.content && (
-                          <p className="mt-2 text-ink-muted text-xs leading-relaxed">
-                            {log.content}
-                          </p>
+                      <td colSpan={12} className="px-6 py-3">
+                        {expandItems.length > 0 && (
+                          <div className="flex flex-wrap gap-x-8 gap-y-1.5">
+                            {expandItems.map((item) => (
+                              <div
+                                key={item.label}
+                                className="flex items-start gap-2"
+                              >
+                                <span className="text-ink-faint whitespace-nowrap">
+                                  {item.label}：
+                                </span>
+                                <span className="text-ink font-mono break-all">
+                                  {item.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </td>
                     </tr>

@@ -69,7 +69,11 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link to="/" className="inline-block no-underline">
             <h1 className="font-serif text-2xl italic text-ink">
-              {t("元枢 AI")}
+              <img
+                src="/logo.png"
+                alt={t("元枢 AI")}
+                className="h-16 w-auto"
+              />
             </h1>
           </Link>
           <p className="text-ink-muted text-sm mt-2">
@@ -89,12 +93,12 @@ export default function LoginPage() {
               <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
               <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/>
             </svg>
-            使用 Google 账号登录
+            {t("使用 Google 账号登录")}
           </button>
 
           <div className="flex items-center gap-3 my-6">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-ink-muted text-xs">或</span>
+            <span className="text-ink-muted text-xs">{t("或")}</span>
             <div className="flex-1 h-px bg-border" />
           </div> */}
 

@@ -62,7 +62,7 @@ export default function NotificationCenter() {
   const status = useStatusStore((s) => s.status);
   const fetchStatus = useStatusStore((s) => s.fetchStatus);
 
-  const [activeTab, setActiveTab] = useState("system"); // system | notice
+  const [activeTab, setActiveTab] = useState("notice"); // system | notice
   const [loadingNotice, setLoadingNotice] = useState(false);
   const [noticeContent, setNoticeContent] = useState("");
   const [noticeError, setNoticeError] = useState(null);
@@ -175,7 +175,7 @@ export default function NotificationCenter() {
     <div>
       <h2 className="text-base font-medium text-ink mb-6">{t("通知中心")}</h2>
 
-      <div className="bg-cream-light rounded-lg p-1 flex gap-1 mb-5 flex-wrap inline-block">
+      <div className="bg-cream-light rounded-lg p-1 gap-1 mb-5 inline-block">
         <button
           type="button"
           onClick={() => setActiveTab("notice")}
@@ -186,7 +186,7 @@ export default function NotificationCenter() {
           }`}
         >
           <span className="inline-flex items-center gap-1.5">
-            <Bell size={14} /> 公告
+            <Bell size={14} /> {t("通知")}
           </span>
         </button>
         <button
@@ -199,7 +199,7 @@ export default function NotificationCenter() {
           }`}
         >
           <span className="inline-flex items-center gap-1.5">
-            <Megaphone size={14} /> 系统公告
+            <Megaphone size={14} /> {t("系统公告")}
           </span>
         </button>
       </div>

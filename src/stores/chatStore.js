@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { streamChat, chatCompletion } from "../lib/stream";
+import { searchWeb, buildWebSearchSystemPrompt } from "../lib/webSearch";
 import { buildUserScopedStorageKey } from "./persistScope";
 import {
   DEFAULT_MODEL,
@@ -135,7 +136,24 @@ export const useChatStore = create(
         const updatedConv = get().conversations.find(
           (c) => c.id === activeConversationId,
         );
-        const messagesForApi = updatedConv.messages;
+        let messagesForApi = updatedConv.messages;
+
+        if (sendOptions?.web_search) {
+          try {
+            const query = text.trim();
+            const searchResults = await searchWeb(query, { maxResults: 5 });
+            const webContextPrompt = buildWebSearchSystemPrompt(
+              query,
+              searchResults,
+            );
+            messagesForApi = [
+              ...messagesForApi,
+              { role: "system", content: webContextPrompt },
+            ];
+          } catch {
+            // 联网检索失败时降级为普通对话，避免影响主流程
+          }
+        }
 
         await streamChat({
           messages: messagesForApi,

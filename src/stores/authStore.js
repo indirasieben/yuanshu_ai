@@ -8,6 +8,7 @@ import { useModelStore } from "./modelStore";
 import { useSettingsStore } from "./settingsStore";
 
 const DEFAULT_TOKEN_ID_STORAGE_PREFIX = "default_api_token_id:user:";
+let ensureApiTokenInFlight = null;
 
 function getDefaultTokenIdStorageKey(userId) {
   return `${DEFAULT_TOKEN_ID_STORAGE_PREFIX}${userId}`;
@@ -178,35 +179,41 @@ export const useAuthStore = create(
       },
 
       ensureApiToken: async () => {
-        try {
-          const userId = get().user?.id;
-          if (!userId) return;
+        if (ensureApiTokenInFlight) return ensureApiTokenInFlight;
+        ensureApiTokenInFlight = (async () => {
+          try {
+            const userId = get().user?.id;
+            if (!userId) return;
 
-          let tokenId = get().getDefaultApiTokenId(userId);
+            let tokenId = get().getDefaultApiTokenId(userId);
 
-          if (!tokenId) {
-            // 没有默认 tokenId 时，直接新建一个专用 key 作为该用户默认
-            await api.post("/api/token/", {
-              name: i18n.t("元枢AI-Default"),
-              unlimited_quota: true,
-            });
-            const freshData = await api.get("/api/token/?p=1&size=20");
-            const freshItems = freshData.data?.items || [];
-            const newToken = freshItems.find((t) => t.status === 1);
-            tokenId = newToken?.id || null;
+            if (!tokenId) {
+              // 没有默认 tokenId 时，直接新建一个专用 key 作为该用户默认
+              await api.post("/api/token/", {
+                name: i18n.t("元枢AI-Default"),
+                unlimited_quota: true,
+              });
+              const freshData = await api.get("/api/token/?p=1&size=20");
+              const freshItems = freshData.data?.items || [];
+              const newToken = freshItems.find((t) => t.status === 1);
+              tokenId = newToken?.id || null;
+            }
+
+            if (!tokenId) return;
+
+            const keyResult = await api.post(`/api/token/${tokenId}/key`);
+            const fullKey = keyResult.data?.key;
+            if (!fullKey) return;
+
+            get().setDefaultApiTokenId(tokenId, userId);
+            set({ apiToken: fullKey });
+          } catch {
+            // Token 获取失败不阻塞使用
+          } finally {
+            ensureApiTokenInFlight = null;
           }
-
-          if (!tokenId) return;
-
-          const keyResult = await api.post(`/api/token/${tokenId}/key`);
-          const fullKey = keyResult.data?.key;
-          if (!fullKey) return;
-
-          get().setDefaultApiTokenId(tokenId, userId);
-          set({ apiToken: fullKey });
-        } catch {
-          // Token 获取失败不阻塞使用
-        }
+        })();
+        return ensureApiTokenInFlight;
       },
 
       updateProfile: async (updates) => {

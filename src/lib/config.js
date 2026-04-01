@@ -3,7 +3,7 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 // 默认模型
-export const DEFAULT_MODEL = "deepseek/deepseek-v3.2";
+export const DEFAULT_MODEL = "anthropic/claude-opus-4.6";
 
 // 对话设置默认值
 export const DEFAULT_CONVERSATION_SETTINGS = {

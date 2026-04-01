@@ -89,7 +89,6 @@ import {
   SiGitlab,
   SiGoogle,
   SiKeycloak,
-  SiLinkedin,
   SiNextcloud,
   SiNotion,
   SiOkta,
@@ -504,7 +503,6 @@ const oauthProviderIconMap = {
   google: SiGoogle,
   discord: SiDiscord,
   facebook: SiFacebook,
-  linkedin: SiLinkedin,
   x: SiX,
   twitter: SiX,
   slack: SiSlack,
@@ -1169,6 +1167,46 @@ export function renderQuota(quota, digits = 2) {
     return symbol + minValue.toFixed(digits);
   }
   return symbol + fixedResult;
+}
+
+export function renderQuotaWithoutSymbol(quota, digits = 2) {
+  let quotaPerUnit = localStorage.getItem("quota_per_unit");
+  const quotaDisplayType = localStorage.getItem("quota_display_type") || "USD";
+  quotaPerUnit = parseFloat(quotaPerUnit);
+
+  if (quotaDisplayType === "TOKENS") {
+    return renderNumber(quota);
+  }
+  const resultUSD = quota / quotaPerUnit;
+  let value = resultUSD;
+  if (quotaDisplayType === "CNY") {
+    const statusStr = localStorage.getItem("status");
+    let usdRate = 1;
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        usdRate = s?.usd_exchange_rate || 1;
+      }
+    } catch (e) {}
+    value = resultUSD * usdRate;
+  } else if (quotaDisplayType === "CUSTOM") {
+    const statusStr = localStorage.getItem("status");
+    let rate = 1;
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        rate = s?.custom_currency_exchange_rate || rate;
+      }
+    } catch (e) {}
+    value = resultUSD * rate;
+  }
+  const fixedResult = value.toFixed(digits);
+  if (parseFloat(fixedResult) === 0 && quota > 0 && value > 0) {
+    const minValue = Math.pow(10, -digits);
+    return minValue.toFixed(digits);
+  }
+
+  return fixedResult;
 }
 
 function isValidGroupRatio(ratio) {

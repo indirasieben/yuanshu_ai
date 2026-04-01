@@ -20,6 +20,7 @@ import {
   renderQuota,
   renderQuotaWithoutSymbol,
   getCurrencyConfig,
+  renderNumber,
 } from "../../helpers";
 
 // ─── 额度展示 ─────────────────────────────────────────────────────────────────
@@ -28,6 +29,11 @@ import {
 //   if (q == null) return "$0.00";
 //   return `$${(q / 500000).toFixed(2)}`;
 // }
+
+function formatNum(v, localeTag = "zh-CN") {
+  if (v == null) return "--";
+  return Number(v).toLocaleString(localeTag);
+}
 
 // ─── 通用 Modal ───────────────────────────────────────────────────────────────
 function Modal({ open, onClose, title, children, maxWidth = "max-w-md" }) {
@@ -766,7 +772,7 @@ function SubscriptionTab({ plans, currentSub }) {
                 {plan.total_amount && (
                   <p className="text-xs text-ink-faint mt-1">
                     {t("总额度 {{amount}}", {
-                      amount: renderQuota(plan.total_amount),
+                      amount: `${renderNumber(plan.total_amount)} ytoken (${renderQuota(plan.total_amount)})`,
                     })}
                   </p>
                 )}
@@ -1072,15 +1078,34 @@ function InvitationCard() {
 function AccountStatsBanner({ user }) {
   const { t } = useTranslation();
   const stats = [
-    { label: t("当前余额"), value: renderQuota(user?.quota), accent: true },
-    { label: t("历史消耗"), value: renderQuota(user?.used_quota) },
+    {
+      label: t("当前余额"),
+      value: (
+        <span>
+          <span>{formatNum(user?.quota)}</span>
+          <span className="text-xs text-ink-faint ml-1">{t("ytoken")}</span>
+        </span>
+      ),
+      sub: renderQuota(user?.quota),
+      accent: true,
+    },
+    {
+      label: t("历史消耗"),
+      value: (
+        <span>
+          <span>{formatNum(user?.used_quota)}</span>
+          <span className="text-xs text-ink-faint ml-1">{t("ytoken")}</span>
+        </span>
+      ),
+      sub: renderQuota(user?.used_quota),
+    },
     {
       label: t("请求次数"),
       value: (user?.request_count || 0).toLocaleString(),
     },
   ];
   return (
-    <div className="grid grid-cols-3 gap-3 mb-5">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
       {stats.map((s) => (
         <div
           key={s.label}
@@ -1096,6 +1121,13 @@ function AccountStatsBanner({ user }) {
           >
             {s.value}
           </p>
+          {s.sub && (
+            <p
+              className={`text-xs mb-1 ${s.accent ? "text-cream-light/70" : "text-ink-muted"}`}
+            >
+              {s.sub}
+            </p>
+          )}
         </div>
       ))}
     </div>

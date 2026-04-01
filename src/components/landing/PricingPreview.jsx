@@ -2,13 +2,26 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowRight } from "lucide-react";
 import { plans } from "../../data/plans";
+import {
+  formatSubscriptionDuration,
+  renderQuota,
+  renderQuotaWithoutSymbol,
+  getCurrencyConfig,
+  renderNumber,
+} from "../../helpers";
 
 export default function PricingPreview() {
   const { t } = useTranslation();
   const previewPlans = plans.filter((p) =>
     ["starter", "pro", "enterprise"].includes(p.id),
   );
-
+  const { symbol, rate } = getCurrencyConfig();
+  const formattedPrice = (price) => {
+    if (price === null) {
+      return t("定制");
+    }
+    return `${symbol}${Number(price * rate).toFixed(2)}`;
+  };
   return (
     <section className="py-24 lg:py-32 bg-white/40">
       <div className="max-w-5xl mx-auto px-6 lg:px-8">
@@ -48,7 +61,7 @@ export default function PricingPreview() {
                 <span
                   className={`text-3xl font-serif font-bold ${plan.highlight ? "text-white" : "text-ink"}`}
                 >
-                  {plan.priceLabel}
+                  {formattedPrice(plan.price)}
                 </span>
                 {plan.period && (
                   <span

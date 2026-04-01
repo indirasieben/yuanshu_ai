@@ -22,7 +22,7 @@ import toast from "react-hot-toast";
 import { Tag, AvatarGroup, Avatar, Tooltip } from "@douyinfe/semi-ui";
 import { useAuthStore } from "../stores/authStore";
 
-import { getModelCategories } from "../helpers/renderModelList";
+import { getModelCategories, renderQuota } from "../helpers";
 
 // ---------- 状态徽章 ----------
 const STATUS_MAP = {
@@ -159,7 +159,9 @@ function TokenRow({
         <StatusBadge status={token.status} />
       </td>
       <td className="px-3 py-3">
-        <span className="text-xs text-ink-muted">{token.group || "auto"}</span>
+        <span className="text-xs text-ink-muted">
+          {token.group || "用户分组"}
+        </span>
       </td>
       <td className="px-3 py-3">
         {renderModelLimits(token.model_limits, token, t)}
@@ -248,7 +250,7 @@ function TokenModal({
         ? token.model_limits.split(",").filter(Boolean)
         : [],
     allow_ips: isCreate ? "" : token?.allow_ips || "",
-    group: isCreate ? "auto" : token?.group || "auto",
+    group: isCreate ? "" : token?.group || "",
     cross_group_retry: isCreate ? false : (token?.cross_group_retry ?? false),
   });
   const [form, setForm] = useState(initForm);
@@ -262,10 +264,15 @@ function TokenModal({
   const localToTs = (s) => (s ? Math.floor(new Date(s).getTime() / 1000) : -1);
 
   const handleSave = async () => {
+    const trimmedName = (form.name ?? "").trim();
+    if (!trimmedName) {
+      toast.error(t("Key 名称为必填项"));
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
-        name: form.name,
+        name: trimmedName,
         remain_quota: form.unlimited_quota ? 0 : Number(form.remain_quota),
         unlimited_quota: form.unlimited_quota,
         expired_time: form.neverExpires ? -1 : form.expired_time,
@@ -284,8 +291,8 @@ function TokenModal({
         for (let i = 0; i < count; i++) {
           const name =
             count > 1
-              ? `${form.name || "key"}-${Math.random().toString(36).slice(-6)}`
-              : form.name;
+              ? `${trimmedName}-${Math.random().toString(36).slice(-6)}`
+              : trimmedName;
           await api.post("/api/token/", { ...payload, name });
         }
         toast.success(
@@ -370,6 +377,11 @@ function TokenModal({
           <div>
             <label className="block text-xs text-ink-muted mb-1.5">
               {t("剩余额度")}
+              {form.unlimited_quota ? null : (
+                <span className="text-xs text-ink-muted ml-2">
+                  (~{renderQuota(form.remain_quota)})
+                </span>
+              )}
             </label>
             <div className="flex items-center gap-3">
               <input
@@ -422,16 +434,16 @@ function TokenModal({
           {/* 模型限制 */}
           <div>
             <label className="block text-xs text-ink-muted mb-1.5">
-              模型限制 (只允许访问选中的模型,默认无限制)
+              {t("模型限制 (只允许访问选中的模型,默认无限制)")}
               {form.model_limits.length > 0 && (
                 <span className="ml-2 text-[10px] text-ink-faint">
-                  已选 {form.model_limits.length} 个
+                  {t("已选 {{n}} 个", { n: form.model_limits.length })}
                 </span>
               )}
             </label>
             <div className="border border-border rounded-xl bg-cream-light p-3 max-h-[160px] overflow-y-auto">
               {models.length === 0 ? (
-                <p className="text-xs text-ink-faint">暂无可用模型</p>
+                <p className="text-xs text-ink-faint">{t("暂无可用模型")}</p>
               ) : (
                 models.map((m) => {
                   const id =
@@ -465,28 +477,31 @@ function TokenModal({
           {/* IP 白名单 */}
           <div>
             <label className="block text-xs text-ink-muted mb-1.5">
-              IP 白名单
+              {t("IP 白名单")}
             </label>
             <textarea
               value={form.allow_ips}
               onChange={(e) => set("allow_ips", e.target.value)}
               rows={3}
-              placeholder="每行一个 IP 或 CIDR，留空表示不限制"
+              placeholder={t("每行一个 IP 或 CIDR，留空表示不限制")}
               className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted transition-colors resize-none font-mono text-xs"
             />
           </div>
 
           {/* 分组 */}
           <div>
-            <label className="block text-xs text-ink-muted mb-1.5">分组</label>
+            <label className="block text-xs text-ink-muted mb-1.5">
+              {t("分组")}
+            </label>
             <select
               value={form.group}
               onChange={(e) => set("group", e.target.value)}
               className="w-full border border-border rounded-xl px-4 py-2.5 bg-cream-light text-ink text-sm outline-none focus:border-ink-muted transition-colors"
             >
+              <option value="">{t("不选择")}</option>
               {groups.map((g) => (
-                <option key={g} value={g}>
-                  {g}
+                <option key={g.key} value={g.key}>
+                  {g.desc || g.key}
                 </option>
               ))}
             </select>
@@ -502,7 +517,7 @@ function TokenModal({
                 className="rounded border-border cursor-pointer"
               />
               <span className="text-xs text-ink-muted">
-                跨分组重试（失败时自动切换分组）
+                {t("跨分组重试（失败时自动切换分组）")}
               </span>
             </label>
           )}
@@ -782,7 +797,10 @@ export default function ApiKeysPage() {
   const handleSearch = async () => {
     setLoading(true);
     setIsSearchMode(true);
-    const kw = searchKeyword.trim() + "%";
+    let kw = searchKeyword.trim();
+    if (kw !== "") {
+      kw = kw + "%";
+    }
     const tk = searchToken.trim().replace(/^sk-/, "");
     try {
       const data = await api.get(
@@ -817,9 +835,28 @@ export default function ApiKeysPage() {
         if (Array.isArray(mRes?.data)) setModels(mRes.data);
         // 后端分组返回：可能是数组，也可能是对象 { default: {...}, vip: {...} }
         if (Array.isArray(gRes?.data)) {
-          setGroups(gRes.data);
+          setGroups(
+            gRes.data
+              .map((g) => {
+                if (typeof g === "string") return { key: g, desc: g, ratio: 1 };
+                if (g && typeof g === "object") {
+                  const key = g.key ?? g.id ?? g.name ?? g.group;
+                  if (!key) return null;
+                  const desc = g.desc ?? g.label ?? g.name ?? String(key);
+                  const ratio = g.ratio ?? 1;
+                  return { key: String(key), desc: String(desc), ratio };
+                }
+                return null;
+              })
+              .filter(Boolean),
+          );
         } else if (gRes?.data && typeof gRes.data === "object") {
-          setGroups(Object.keys(gRes.data));
+          setGroups(
+            Object.entries(gRes.data).map(([key, val]) => {
+              if (val && typeof val === "object") return { key, ...val };
+              return { key, desc: key, ratio: val };
+            }),
+          );
         }
       })
       .catch(() => {});

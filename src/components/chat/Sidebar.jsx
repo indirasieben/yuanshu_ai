@@ -16,18 +16,20 @@ import {
   X,
 } from "lucide-react";
 import { useChatStore } from "../../stores/chatStore";
+import { useConfirmStore } from "../../stores/confirmStore";
 import {
   displayConversationTitle,
   conversationTitleMatchesSearch,
 } from "../../helpers/conversationTitle";
 
-export default function Sidebar({ collapsed, onToggle, onOpenSubscription }) {
+export default function Sidebar({ collapsed, onToggle }) {
   const { t, i18n } = useTranslation();
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [menuId, setMenuId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const editRef = useRef(null);
+  const confirm = useConfirmStore((s) => s.confirm);
 
   const {
     conversations,
@@ -83,14 +85,30 @@ export default function Sidebar({ collapsed, onToggle, onOpenSubscription }) {
     setEditTitle("");
   };
 
-  const handleDelete = (id) => {
-    deleteConversation(id);
+  const handleDelete = async (id) => {
     setMenuId(null);
+    const ok = await confirm({
+      title: t("确认删除"),
+      message: t("确定要删除该对话吗？此操作不可撤销。"),
+      confirmText: t("删除"),
+      cancelText: t("取消"),
+      danger: true,
+    });
+    if (!ok) return;
+    deleteConversation(id);
   };
 
-  const handleClearConversation = (id) => {
-    clearConversationMessages(id);
+  const handleClearConversation = async (id) => {
     setMenuId(null);
+    const ok = await confirm({
+      title: t("确认"),
+      message: t("确定要清空该对话的所有消息吗？此操作不可撤销。"),
+      confirmText: t("清空对话"),
+      cancelText: t("取消"),
+      danger: false,
+    });
+    if (!ok) return;
+    clearConversationMessages(id);
   };
 
   return (
@@ -104,7 +122,7 @@ export default function Sidebar({ collapsed, onToggle, onOpenSubscription }) {
           to="/"
           className="font-serif text-sm font-bold text-ink italic no-underline hover:text-ink-muted transition-colors"
         >
-          {t("元枢 AI")}
+          <img src="/logo.png" alt={t("元枢 AI")} className="h-10 w-auto" />
         </Link>
         <button
           onClick={onToggle}
@@ -253,13 +271,13 @@ export default function Sidebar({ collapsed, onToggle, onOpenSubscription }) {
       </div>
 
       <div className="p-3 border-t border-border space-y-0.5">
-        <button
+        {/* <button
           onClick={onOpenSubscription}
           className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] text-ink-muted hover:bg-white hover:text-ink bg-transparent border-none cursor-pointer transition-colors"
         >
           <CreditCard size={14} />
           {t("ytoken 充值")}
-        </button>
+        </button> */}
         {navItems.map((item) => (
           <Link
             key={item.labelKey}

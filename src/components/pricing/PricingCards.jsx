@@ -1,9 +1,23 @@
 import { useTranslation } from "react-i18next";
 import { plans } from "../../data/plans";
 
+import {
+  formatSubscriptionDuration,
+  renderQuota,
+  renderQuotaWithoutSymbol,
+  getCurrencyConfig,
+  renderNumber,
+} from "../../helpers";
+
 export default function PricingCards() {
   const { t } = useTranslation();
-
+  const { symbol, rate } = getCurrencyConfig();
+  const formattedPrice = (price) => {
+    if (price === null) {
+      return t("定制");
+    }
+    return `${symbol}${Number(price * rate).toFixed(2)}`;
+  };
   return (
     <section className="py-12">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -40,7 +54,7 @@ export default function PricingCards() {
                 <span
                   className={`text-2xl font-serif font-bold ${plan.highlight ? "text-white" : "text-ink"}`}
                 >
-                  {plan.priceLabel}
+                  {formattedPrice(plan.price)}
                 </span>
                 {plan.period && (
                   <span
@@ -53,7 +67,7 @@ export default function PricingCards() {
                   <div
                     className={`text-[11px] mt-1 ${plan.highlight ? "text-white/40" : "text-ink-faint"}`}
                   >
-                    {t(plan.tokens)} {t(plan.tokensUnit)}
+                    {t(renderNumber(plan.tokens))} {t(plan.tokensUnit)}
                   </div>
                 )}
               </div>

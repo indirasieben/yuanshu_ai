@@ -1,21 +1,72 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { DEFAULT_MODEL } from "../lib/config";
-import { MODEL_META } from "../data/modelMeta";
 import { apiRequest } from "../lib/api";
 import { buildUserScopedStorageKey } from "./persistScope";
 
 // 默认常用模型（PRD MOD-002）
-const DEFAULT_FAVORITES = [""];
+const DEFAULT_FAVORITES = [
+  "anthropic/claude-opus-4.6",
+  "anthropic/claude-sonnet-4.6",
+  "openai/gpt-5.4",
+  "google/gemini-3.1-pro-preview",
+  "google/gemini-3-pro-image-preview",
+  "deepseek/deepseek-R1",
+  "moonshotai/kimi-k2.5",
+  "minimax/minimax-m2.7",
+];
 const MODEL_STORAGE_BASE_KEY = "model-storage";
+
+const parseCapabilitiesFromTags = (tags) => {
+  if (!tags || typeof tags !== "string") return [];
+  return tags
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !/^\d+(\.\d+)?\s*[KMG]$/i.test(item));
+};
+
+const parseContextWindowFromTags = (tags) => {
+  if (!tags || typeof tags !== "string") return "";
+  const items = tags
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const context = items.find((item) => /^\d+(\.\d+)?\s*[KMG]$/i.test(item));
+  return context || "";
+};
+
+const makeProviderMap = (vendors = []) =>
+  vendors.reduce((acc, vendor) => {
+    if (vendor?.id != null && vendor?.name) {
+      acc[vendor.id] = vendor.name;
+    }
+    return acc;
+  }, {});
+
+const transformApiModel = (model, providerMap) => {
+  const id = model.model_name || model.id || "";
+  const capabilities = parseCapabilitiesFromTags(model.tags);
+  const contextWindow = parseContextWindowFromTags(model.tags);
+
+  return {
+    ...model,
+    id,
+    model_name: id,
+    name: id,
+    provider: providerMap[model.vendor_id] || "其他",
+    badge: "",
+    multimodal:
+      capabilities.includes("Vision") || capabilities.includes("Audio"),
+    description: model.description || "",
+    capabilities,
+    contextWindow,
+  };
+};
 
 export const useModelStore = create(
   persist(
     (set, get) => ({
-      allModels: Object.entries(MODEL_META).map(([id, meta]) => ({
-        id,
-        ...meta,
-      })),
+      allModels: [],
       chatFavorites: DEFAULT_FAVORITES,
       isLoading: false,
 
@@ -65,22 +116,13 @@ export const useModelStore = create(
       fetchModels: async () => {
         set({ isLoading: true });
         try {
-          const data = await apiRequest("/api/user/models");
-          // 返回格式: { success: true, data: ["model-id-1", "model-id-2", ...] }
-          const modelIds = data.data || [];
-          const apiModels = modelIds.map((id) => {
-            const meta = MODEL_META[id] || {};
-            return {
-              id,
-              name: meta.name || id,
-              provider: meta.provider || "其他",
-              badge: meta.badge || "",
-              multimodal: meta.multimodal || false,
-              description: meta.description || "",
-              capabilities: meta.capabilities || [],
-              contextWindow: meta.contextWindow || "",
-            };
-          });
+          // const data = await apiRequest("/api/user/models");
+          const data = await apiRequest("/api/pricing");
+          const modelList = Array.isArray(data?.data) ? data.data : [];
+          const providerMap = makeProviderMap(data?.vendors);
+          const apiModels = modelList
+            .map((model) => transformApiModel(model, providerMap))
+            .filter((model) => model.id);
           if (apiModels.length > 0) {
             set({ allModels: apiModels });
           }

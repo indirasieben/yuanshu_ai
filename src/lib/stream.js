@@ -133,7 +133,10 @@ export async function streamChat({
     stream: true,
   };
 
-  if (settings.enableTemperature !== false && settings.temperature !== undefined)
+  if (
+    settings.enableTemperature !== false &&
+    settings.temperature !== undefined
+  )
     body.temperature = settings.temperature;
   if (settings.enableTopP !== false && settings.topP !== undefined)
     body.top_p = settings.topP;

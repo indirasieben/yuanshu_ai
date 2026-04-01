@@ -3,51 +3,8 @@ import { useTranslation } from "react-i18next";
 import { X, Info, Check } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import YtokenExchangeModal from "./YtokenExchangeModal";
-
-const subscriptionPlans = [
-  {
-    id: "starter",
-    name: "入门版",
-    price: "¥35",
-    period: "/月",
-    ytokens: "500 万",
-    features: ["仅 Web 端"],
-  },
-  {
-    id: "basic",
-    name: "基础版",
-    price: "¥149",
-    period: "/月",
-    ytokens: "2,500 万",
-    features: ["含 API 访问"],
-  },
-  {
-    id: "pro",
-    name: "Pro 版",
-    price: "¥389",
-    period: "/月",
-    ytokens: "6,000 万",
-    highlight: true,
-    badge: "最受欢迎",
-    features: ["含 API 访问"],
-  },
-  {
-    id: "professional",
-    name: "专业版",
-    price: "¥789",
-    period: "/月",
-    ytokens: "12,000 万",
-    features: ["含 API 访问", "优先路由"],
-  },
-  {
-    id: "enterprise",
-    name: "企业版",
-    price: "¥1,899",
-    period: "/月",
-    ytokens: "25,000 万",
-    features: ["含 API 访问", "专属支持"],
-  },
-];
+import { plans } from "../../data/plans";
+import { renderNumber, getCurrencyConfig } from "../../helpers";
 
 export default function SubscriptionModal({ onClose }) {
   const { t, i18n } = useTranslation();
@@ -55,8 +12,14 @@ export default function SubscriptionModal({ onClose }) {
   const [showExchange, setShowExchange] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
 
-  const currentQuota =
-    user?.quota != null ? (user.quota / 500000).toFixed(0) : "--";
+  const { symbol, rate } = getCurrencyConfig();
+  const formattedPrice = (price) => {
+    if (price === null) {
+      return t("定制");
+    }
+    return `${symbol}${Number(price * rate).toFixed(2)}`;
+  };
+  const currentQuota = user?.quota != null ? renderNumber(user.quota) : "--";
   const currentPlanKey = "入门版";
 
   const localeTag =
@@ -85,7 +48,7 @@ export default function SubscriptionModal({ onClose }) {
             </button>
           </div>
 
-          <div className="px-6 py-3 bg-cream-light border-b border-border flex flex-wrap items-center gap-6 text-sm">
+          {/* <div className="px-6 py-3 bg-cream-light border-b border-border flex flex-wrap items-center gap-6 text-sm">
             <span className="text-ink-muted">
               {t("当前套餐")}
               {": "}
@@ -95,8 +58,7 @@ export default function SubscriptionModal({ onClose }) {
               {t("剩余 ytoken")}
               {": "}
               <span className="text-ink font-medium">
-                {currentQuota}
-                {t("万") ? ` ${t("万")}` : ""}
+                {currentQuota} ytoken
               </span>
             </span>
             {user?.expires_at && (
@@ -108,11 +70,11 @@ export default function SubscriptionModal({ onClose }) {
                 </span>
               </span>
             )}
-          </div>
+          </div> */}
 
           <div className="p-6">
             <div className="grid grid-cols-5 gap-3">
-              {subscriptionPlans.map((plan) => (
+              {plans.map((plan) => (
                 <div
                   key={plan.id}
                   role="button"
@@ -152,9 +114,9 @@ export default function SubscriptionModal({ onClose }) {
                   </h4>
                   <div className="mb-2">
                     <span
-                      className={`text-xl font-bold ${plan.highlight ? "text-white" : "text-ink"}`}
+                      className={`text-base font-bold ${plan.highlight ? "text-white" : "text-ink"}`}
                     >
-                      {plan.price}
+                      {formattedPrice(plan.price)}
                     </span>
                     <span
                       className={`text-xs ${plan.highlight ? "text-white/60" : "text-ink-muted"}`}
@@ -165,7 +127,7 @@ export default function SubscriptionModal({ onClose }) {
                   <p
                     className={`text-xs mb-3 ${plan.highlight ? "text-white/70" : "text-ink-muted"}`}
                   >
-                    {t("{{y}} ytoken", { y: plan.ytokens })}
+                    {t("{{y}} ytoken", { y: renderNumber(plan.tokens) })}
                   </p>
                   <ul className="space-y-1">
                     {plan.features.map((f) => (
@@ -190,9 +152,7 @@ export default function SubscriptionModal({ onClose }) {
                           : "bg-cream text-ink hover:bg-cream-dark"
                     }`}
                   >
-                    {plan.id === "starter"
-                      ? t("当前套餐")
-                      : t("升级")}
+                    {plan.id === "starter" ? t("当前套餐") : t("升级")}
                   </button>
                 </div>
               ))}
@@ -212,9 +172,7 @@ export default function SubscriptionModal({ onClose }) {
                 ))}
               </div>
               <p className="text-[11px] text-ink-faint mt-2">
-                {t(
-                  "⚠️ 在线支付功能即将上线，当前请通过兑换码充值或联系客服",
-                )}
+                {t("⚠️ 在线支付功能即将上线，当前请通过兑换码充值或联系客服")}
               </p>
             </div>
 

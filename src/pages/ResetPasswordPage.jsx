@@ -62,7 +62,11 @@ export default function ResetPasswordPage() {
         <div className="text-center mb-8">
           <Link to="/" className="inline-block no-underline">
             <h1 className="font-serif text-2xl italic text-ink">
-              {t("元枢 AI")}
+              <img
+                src="/logo.png"
+                alt={t("元枢 AI")}
+                className="h-16 w-auto"
+              />
             </h1>
           </Link>
           <p className="text-ink-muted text-sm mt-2">{t("找回密码")}</p>

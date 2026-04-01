@@ -17,17 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-// export * from './history';
-// export * from './auth';
-// export * from './utils';
-// export * from './base64';
-// export * from './api';
-export * from "./render";
-export * from "./log";
-export * from "./data";
-// export * from './token';
-// export * from './boolean';
-// export * from './dashboard';
-// export * from './passkey';
-// export * from './statusCodeRules';
-export * from "./subscriptionFormat";
+export const toastConstants = {
+  SUCCESS_TIMEOUT: 1500,
+  INFO_TIMEOUT: 3000,
+  ERROR_TIMEOUT: 5000,
+  WARNING_TIMEOUT: 10000,
+  NOTICE_TIMEOUT: 20000,
+};

@@ -104,7 +104,13 @@ const PasswordResetConfirm = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-block no-underline">
-            <h1 className="font-serif text-2xl italic text-ink">{t("元枢 AI")}</h1>
+            <h1 className="font-serif text-2xl italic text-ink">
+              <img
+                src="/logo.png"
+                alt={t("元枢 AI")}
+                className="h-16 w-auto"
+              />
+            </h1>
           </Link>
           <p className="text-ink-muted text-sm mt-2">{t("密码重置确认")}</p>
         </div>
@@ -134,13 +140,17 @@ const PasswordResetConfirm = () => {
             {newPassword && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs text-ink-muted">{t("新密码")}</label>
+                  <label className="text-xs text-ink-muted">
+                    {t("新密码")}
+                  </label>
                   <button
                     type="button"
                     onClick={async () => {
                       const copied = await copyToClipboard(newPassword);
                       if (copied) {
-                        toast.success(`${t("密码已复制到剪贴板：")} ${newPassword}`);
+                        toast.success(
+                          `${t("密码已复制到剪贴板：")} ${newPassword}`,
+                        );
                       } else {
                         toast.error(t("复制失败，请手动复制新密码"));
                       }
