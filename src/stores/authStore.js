@@ -2,13 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api } from "../lib/api";
 import { applyUserLanguageFromProfile } from "../i18n/syncLanguage";
-import i18n from "../i18n/i18n";
 import { useChatStore } from "./chatStore";
 import { useModelStore } from "./modelStore";
 import { useSettingsStore } from "./settingsStore";
 
 const DEFAULT_TOKEN_ID_STORAGE_PREFIX = "default_api_token_id:user:";
-let ensureApiTokenInFlight = null;
 
 function getDefaultTokenIdStorageKey(userId) {
   return `${DEFAULT_TOKEN_ID_STORAGE_PREFIX}${userId}`;
@@ -59,7 +57,6 @@ export const useAuthStore = create(
     (set, get) => ({
       user: null,
       sessionToken: "",
-      apiToken: "", // 仅内存缓存完整 key（不持久化）
       isAuthenticated: false,
       isLoading: false,
 
@@ -91,7 +88,14 @@ export const useAuthStore = create(
         const fullKey = keyResult.data?.key;
         if (!fullKey) return false;
         setDefaultApiTokenIdForUser(resolvedUserId, normalizedTokenId);
-        set({ apiToken: fullKey });
+        try {
+          localStorage.setItem(
+            `active_api_token:user:${resolvedUserId}`,
+            fullKey.startsWith("sk-") ? fullKey : `sk-${fullKey}`,
+          );
+        } catch {
+          // ignore
+        }
         return true;
       },
       clearDefaultApiTokenId: (userId = null) => {
@@ -158,62 +162,16 @@ export const useAuthStore = create(
           const data = await api.get("/api/user/self");
           const user = data.data || data;
           switchStoresToUserScope(user?.id);
-          // 用户切换时清空旧用户内存 key 缓存
-          if (get().user?.id !== user?.id) {
-            set({ apiToken: "" });
-          }
           set({ user, isAuthenticated: true });
           applyUserLanguageFromProfile(user);
-
-          // 每次登录/拉取身份后都重新请求完整 key，写入内存缓存
-          await get().ensureApiToken();
         } catch {
           switchStoresToUserScope(null);
           set({
             user: null,
             isAuthenticated: false,
             sessionToken: "",
-            apiToken: "",
           });
         }
-      },
-
-      ensureApiToken: async () => {
-        if (ensureApiTokenInFlight) return ensureApiTokenInFlight;
-        ensureApiTokenInFlight = (async () => {
-          try {
-            const userId = get().user?.id;
-            if (!userId) return;
-
-            let tokenId = get().getDefaultApiTokenId(userId);
-
-            if (!tokenId) {
-              // 没有默认 tokenId 时，直接新建一个专用 key 作为该用户默认
-              await api.post("/api/token/", {
-                name: i18n.t("元枢AI-Default"),
-                unlimited_quota: true,
-              });
-              const freshData = await api.get("/api/token/?p=1&size=20");
-              const freshItems = freshData.data?.items || [];
-              const newToken = freshItems.find((t) => t.status === 1);
-              tokenId = newToken?.id || null;
-            }
-
-            if (!tokenId) return;
-
-            const keyResult = await api.post(`/api/token/${tokenId}/key`);
-            const fullKey = keyResult.data?.key;
-            if (!fullKey) return;
-
-            get().setDefaultApiTokenId(tokenId, userId);
-            set({ apiToken: fullKey });
-          } catch {
-            // Token 获取失败不阻塞使用
-          } finally {
-            ensureApiTokenInFlight = null;
-          }
-        })();
-        return ensureApiTokenInFlight;
       },
 
       updateProfile: async (updates) => {
@@ -240,7 +198,6 @@ export const useAuthStore = create(
         set({
           user: null,
           sessionToken: "",
-          apiToken: "",
           isAuthenticated: false,
         });
         window.location.hash = "#/login";

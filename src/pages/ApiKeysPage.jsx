@@ -20,7 +20,6 @@ import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import toast from "react-hot-toast";
 import { Tag, AvatarGroup, Avatar, Tooltip } from "@douyinfe/semi-ui";
-import { useAuthStore } from "../stores/authStore";
 
 import { getModelCategories, renderQuota } from "../helpers";
 
@@ -83,8 +82,6 @@ function TokenRow({
   onStatusToggle,
   onEdit,
   onDelete,
-  onSetDefault,
-  isDefault,
 }) {
   const { t, i18n } = useTranslation();
   const localeTag =
@@ -197,21 +194,6 @@ function TokenRow({
           >
             {t("编辑")}
           </button>
-          {isDefault ? (
-            <button
-              disabled
-              className="px-2 py-1 text-[11px] rounded text-ink-muted border border-border bg-transparent cursor-not-allowed opacity-60 transition-colors"
-            >
-              {t("当前默认")}
-            </button>
-          ) : (
-            <button
-              onClick={() => onSetDefault(token)}
-              className="px-2 py-1 text-[11px] rounded text-ink-muted border border-border hover:bg-cream-dark bg-transparent cursor-pointer transition-colors"
-            >
-              {t("设为默认")}
-            </button>
-          )}
           <button
             onClick={() => onDelete(token.id)}
             className="px-2 py-1 text-[11px] rounded text-red-500 border border-red-100 hover:bg-red-50 bg-transparent cursor-pointer transition-colors"
@@ -748,16 +730,6 @@ export default function ApiKeysPage() {
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [models, setModels] = useState([]);
   const [groups, setGroups] = useState([]);
-  const resolveCurrentUserId = useAuthStore((s) => s.resolveCurrentUserId);
-  const getDefaultApiTokenId = useAuthStore((s) => s.getDefaultApiTokenId);
-  const setDefaultApiTokenIdAndRefreshCache = useAuthStore(
-    (s) => s.setDefaultApiTokenIdAndRefreshCache,
-  );
-  const clearDefaultApiTokenId = useAuthStore((s) => s.clearDefaultApiTokenId);
-  const [defaultTokenId, setDefaultTokenId] = useState(() => {
-    const userId = useAuthStore.getState().resolveCurrentUserId?.();
-    return useAuthStore.getState().getDefaultApiTokenId?.(userId) ?? null;
-  });
 
   const baseUrl = window.location.origin + "/v1";
   const maxCreateCount = Math.max(0, 1000 - total);
@@ -931,34 +903,11 @@ export default function ApiKeysPage() {
     try {
       await api.delete(`/api/token/${id}`);
       toast.success(t("已删除"));
-      if (defaultTokenId === id) {
-        clearDefaultApiTokenId();
-        setDefaultTokenId(null);
-      }
       fetchTokens(page, pageSize);
     } catch {
       toast.error(t("删除失败"));
     }
   };
-  // 设置默认api-key
-  const handleSetDefault = async (token) => {
-    try {
-      const ok = await setDefaultApiTokenIdAndRefreshCache(token.id);
-      if (!ok) {
-        toast.error(t("获取完整密钥失败"));
-        return;
-      }
-      setDefaultTokenId(token.id);
-      toast.success(t("已设为默认"));
-    } catch {
-      toast.error(t("获取完整密钥失败"));
-    }
-  };
-
-  useEffect(() => {
-    const userId = resolveCurrentUserId?.();
-    setDefaultTokenId(getDefaultApiTokenId?.(userId) ?? null);
-  }, [getDefaultApiTokenId, resolveCurrentUserId, tokens]);
 
   // 批量删除
   const handleBatchDelete = async () => {
@@ -1280,8 +1229,6 @@ resp = client.chat.completions.create(
                       onStatusToggle={handleStatusToggle}
                       onEdit={setEditToken}
                       onDelete={handleDelete}
-                      onSetDefault={handleSetDefault}
-                      isDefault={defaultTokenId === token.id}
                     />
                   ))
                 )}

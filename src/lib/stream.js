@@ -1,15 +1,79 @@
 import { API_BASE_URL } from "./config";
 import i18n from "../i18n/i18n";
-import { useAuthStore } from "../stores/authStore";
+// 不从 store 读取 apiToken；统一从浏览器缓存按 userId 获取
 
 /**
  * SSE 流式输出辅助函数
- * 调用 new-api 的 /v1/chat/completions（Bearer token 认证）
+ * 有 apiToken 时调用 /v1/chat/completions（Bearer token 认证）
+ * 无 apiToken（新用户）时调用 /pg/chat/completions
  */
 
+function getUserId() {
+  try {
+    const auth = JSON.parse(localStorage.getItem("auth-storage") || "{}");
+    return auth?.state?.user?.id || "";
+  } catch {
+    return "";
+  }
+}
+
+function normalizeRelayToken(token) {
+  const trimmed = typeof token === "string" ? token.trim() : "";
+  if (!trimmed) return "";
+  return trimmed.startsWith("sk-") ? trimmed : `sk-${trimmed}`;
+}
+
 function getRelayToken() {
-  const token = useAuthStore.getState().apiToken;
-  return typeof token === "string" ? token.trim() : "";
+  const userId = getUserId();
+  if (!userId) return "";
+
+  // 1) 当前使用的 key（可来自导入/其他来源），按 userId 缓存
+  try {
+    const active = localStorage.getItem(`active_api_token:user:${userId}`);
+    const normalized = normalizeRelayToken(active);
+    if (normalized) return normalized;
+  } catch {
+    // ignore
+  }
+
+  // 2) 回退到导入列表：优先默认 id，否则取 updatedAt 最新
+  try {
+    const raw = localStorage.getItem(`imported_api_token:user:${userId}`);
+    if (!raw) return "";
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return "";
+
+    const preferredId = localStorage.getItem(
+      `imported_api_token_default_id:user:${userId}`,
+    );
+    if (preferredId) {
+      const preferred = parsed.find((it) => String(it?.id) === preferredId);
+      const cachedKey = normalizeRelayToken(preferred?.key);
+      if (cachedKey) return cachedKey;
+    }
+
+    const latest = parsed.reduce((acc, cur) => {
+      const a = Number(acc?.updatedAt || 0);
+      const b = Number(cur?.updatedAt || 0);
+      return b >= a ? cur : acc;
+    }, null);
+    return normalizeRelayToken(latest?.key);
+  } catch {
+    return "";
+  }
+}
+
+function resolveChatCompletionsEndpoint(relayToken) {
+  return relayToken ? "/v1/chat/completions" : "/pg/chat/completions";
+}
+
+function buildChatCompletionsHeaders(relayToken) {
+  const headers = {
+    "Content-Type": "application/json",
+    "New-Api-User": String(getUserId()),
+  };
+  if (relayToken) headers.Authorization = `Bearer ${relayToken}`;
+  return headers;
 }
 
 function extractDeltaText(delta) {
@@ -116,6 +180,7 @@ export async function streamChat({
   signal,
 }) {
   const token = getRelayToken();
+  const endpoint = resolveChatCompletionsEndpoint(token);
 
   // 构建消息数组，如果有 systemPrompt 则插入到最前面
   const apiMessages = [];
@@ -150,12 +215,9 @@ export async function streamChat({
   let usage = null;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/v1/chat/completions`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: buildChatCompletionsHeaders(token),
       body: JSON.stringify(body),
       signal,
     });
@@ -259,14 +321,12 @@ export async function streamChat({
  */
 export async function chatCompletion({ messages, model, maxTokens = 100 }) {
   const token = getRelayToken();
+  const endpoint = resolveChatCompletionsEndpoint(token);
   const sanitizedMessages = sanitizeMessagesForRequest(messages);
 
-  const response = await fetch(`${API_BASE_URL}/v1/chat/completions`, {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: buildChatCompletionsHeaders(token),
     body: JSON.stringify({
       model,
       messages: sanitizedMessages,

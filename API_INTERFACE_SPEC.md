@@ -28,7 +28,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 | API Token（relay key） | `/v1/*` AI 中继接口 | `Authorization: Bearer <api_token>` |
 
 - **Session Token**：登录接口返回 JWT，存储在 localStorage `auth-storage` → `state.sessionToken`
-- **API Token**：前端自动调用 `POST /api/token/` 创建一个内部 relay key，存储在 `state.apiToken`
+- **API Token**：用于调用 `/v1/*` 的 relay key；前端不再写入 auth store，而是按用户维度缓存到浏览器 localStorage（例如 `active_api_token:user:{id}`，以及导入列表 `imported_api_token:user:{id}`）
 
 ### 1.3 通用响应格式
 

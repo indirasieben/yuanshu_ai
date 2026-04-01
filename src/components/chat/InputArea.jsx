@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Send, Square, Paperclip, Globe, Settings, Atom } from "lucide-react";
+import {
+  Send,
+  Square,
+  Paperclip,
+  Globe,
+  Settings,
+  Atom,
+  KeyRound,
+} from "lucide-react";
 import ModelSelector from "./ModelSelector";
+import ApiKeySettingsModal from "./ApiKeySettingsModal";
 
 export default function InputArea({
   onSend,
@@ -13,7 +22,8 @@ export default function InputArea({
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [deepThinking, setDeepThinking] = useState(false);
-  const [webSearch, setWebSearch] = useState(false);
+  const [webSearch] = useState(false);
+  const [showApiKeySettings, setShowApiKeySettings] = useState(false);
 
   const toggleToolClass = (active) =>
     `flex items-center gap-1 px-2 py-1.5 rounded-md border-none cursor-pointer transition-colors text-[12px] ${
@@ -94,6 +104,14 @@ export default function InputArea({
             </div>
 
             <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setShowApiKeySettings(true)}
+                className="flex items-center gap-1 px-2 py-1.5 text-ink-muted hover:text-ink hover:bg-cream rounded-md bg-transparent border-none cursor-pointer transition-colors text-[12px]"
+                title={t("导入 Key")}
+              >
+                <KeyRound size={14} />
+                <span>{t("导入 Key")}</span>
+              </button>
               <ModelSelector />
               {isStreaming ? (
                 <button
@@ -120,6 +138,10 @@ export default function InputArea({
           </div>
         </div>
       </div>
+
+      {showApiKeySettings && (
+        <ApiKeySettingsModal onClose={() => setShowApiKeySettings(false)} />
+      )}
     </div>
   );
 }
