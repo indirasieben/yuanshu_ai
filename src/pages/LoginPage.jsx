@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
 import Turnstile from "react-turnstile";
+import { useStatus } from "../hooks/common/useStatus";
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -18,15 +19,7 @@ export default function LoginPage() {
 
   const from = location.state?.from || "/chat";
 
-  const status = useMemo(() => {
-    try {
-      const statusData = localStorage.getItem("status");
-      if (!statusData) return {};
-      return JSON.parse(statusData) || {};
-    } catch {
-      return {};
-    }
-  }, []);
+  const { status, getLatestStatus } = useStatus();
   const turnstileEnabled = Boolean(status?.turnstile_check);
   const turnstileSiteKey = status?.turnstile_site_key || "";
 
@@ -45,14 +38,16 @@ export default function LoginPage() {
       toast.error(t("请填写用户名或邮箱地址和密码"));
       return;
     }
-    if (turnstileEnabled && !turnstileToken) {
+    const currentStatus = getLatestStatus();
+    const currentTurnstileEnabled = Boolean(currentStatus?.turnstile_check);
+    if (currentTurnstileEnabled && !turnstileToken) {
       toast.error(t("请先完成人机验证"));
       return;
     }
     const result = await login(
       usernameOrEmail,
       password,
-      turnstileEnabled ? turnstileToken : "",
+      currentTurnstileEnabled ? turnstileToken : "",
     );
     if (result.success) {
       toast.success(t("登录成功"));
@@ -69,11 +64,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link to="/" className="inline-block no-underline">
             <h1 className="font-serif text-2xl italic text-ink">
-              <img
-                src="/logo.png"
-                alt={t("元枢 AI")}
-                className="h-16 w-auto"
-              />
+              <img src="/logo.png" alt={t("元枢 AI")} className="h-16 w-auto" />
             </h1>
           </Link>
           <p className="text-ink-muted text-sm mt-2">

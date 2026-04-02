@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
+import { Loader2 } from "lucide-react";
 
 export default function OAuthCallbackPage() {
   const { t } = useTranslation();
@@ -35,8 +36,10 @@ export default function OAuthCallbackPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-cream px-4">
-      <div className="text-ink-muted text-sm">{t("加载中…")}</div>
+      <div className="flex items-center justify-center gap-2">
+        <Loader2 className="animate-spin text-ink-muted" size={18} />
+        <div className="text-xs text-ink-muted">{t("加载中…")}</div>
+      </div>
     </div>
   );
 }
-

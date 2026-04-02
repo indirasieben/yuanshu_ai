@@ -63,11 +63,11 @@ export default function ChatPage() {
   const { user, logout } = useAuthStore();
   const status = useStatusStore((s) => s.status);
 
-  const unreadNoticeHasUnread = (() => {
-    if (typeof window === "undefined") return false;
+  const unreadNoticeCount = (() => {
+    if (typeof window === "undefined") return 0;
     const announcements = getAnnouncementsFromStatus(status);
 
-    if (announcements.length === 0) return false;
+    if (announcements.length === 0) return 0;
 
     const raw = window.localStorage.getItem(NOTICE_READ_KEYS_STORAGE);
     let readKeys = [];
@@ -78,7 +78,9 @@ export default function ChatPage() {
     }
     const readSet = new Set(Array.isArray(readKeys) ? readKeys : []);
 
-    return announcements.some((it) => !readSet.has(getKeyForItem(it)));
+    return announcements.reduce((acc, it) => {
+      return acc + (!readSet.has(getKeyForItem(it)) ? 1 : 0);
+    }, 0);
   })();
 
   const activeConversation = getActiveConversation();
@@ -176,7 +178,7 @@ export default function ChatPage() {
               )}
             </h1>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
               onClick={handleExport}
               disabled={showEmpty}
@@ -195,8 +197,10 @@ export default function ChatPage() {
               onClick={markNoticesAsReadAndNavigate}
             >
               <Bell size={14} />
-              {unreadNoticeHasUnread && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500" />
+              {unreadNoticeCount > 0 && (
+                <span className="absolute -top-0.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent/15 text-accent text-[11px] font-semibold flex items-center justify-center">
+                  {unreadNoticeCount > 99 ? "99+" : unreadNoticeCount}
+                </span>
               )}
             </button>
 

@@ -21,6 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { Toast, Pagination } from "@douyinfe/semi-ui";
 import { toastConstants } from "../constants";
 import React from "react";
+import i18n from "../i18n/i18n";
 // import { toast } from 'react-toastify';
 import toast from "react-hot-toast";
 
@@ -532,19 +533,19 @@ export const getRelativeTime = (publishDate) => {
 
   // 根据时间差返回相应的描述
   if (diffSeconds < 60) {
-    return "刚刚";
+    return i18n.t("relative_time.just_now");
   } else if (diffMinutes < 60) {
-    return `${diffMinutes} 分钟前`;
+    return i18n.t("relative_time.minutes_ago", { n: diffMinutes });
   } else if (diffHours < 24) {
-    return `${diffHours} 小时前`;
+    return i18n.t("relative_time.hours_ago", { n: diffHours });
   } else if (diffDays < 7) {
-    return `${diffDays} 天前`;
+    return i18n.t("relative_time.days_ago", { n: diffDays });
   } else if (diffWeeks < 4) {
-    return `${diffWeeks} 周前`;
+    return i18n.t("relative_time.weeks_ago", { n: diffWeeks });
   } else if (diffMonths < 12) {
-    return `${diffMonths} 个月前`;
+    return i18n.t("relative_time.months_ago", { n: diffMonths });
   } else if (diffYears < 2) {
-    return "1 年前";
+    return i18n.t("relative_time.one_year_ago");
   } else {
     // 超过2年显示具体日期
     return formatDateString(pubDate);

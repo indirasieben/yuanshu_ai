@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --color-cream: #F5F3EE;
-  --color-cream-dark: #ECEAE4;
-  --color-cream-light: #FDFCFA;
-  --color-card: #FFFFFF;
-  --color-ink: #1A1A1A;
-  --color-ink-light: #3D3D3D;
+  --color-cream: #f5f3ee;
+  --color-cream-dark: #eceae4;
+  --color-cream-light: #fdfcfa;
+  --color-card: #ffffff;
+  --color-ink: #1a1a1a;
+  --color-ink-light: #3d3d3d;
   --color-ink-muted: #999999;
-  --color-ink-faint: #BBBBBB;
-  --color-border: #E5E2DC;
-  --color-border-light: #F0EDE8;
-  --color-accent: #E84D8A;
-  --color-accent-hover: #D63D7A;
-  --color-accent-light: #FDF0F5;
+  --color-ink-faint: #bbbbbb;
+  --color-border: #e5e2dc;
+  --color-border-light: #f0ede8;
+  --color-accent: #e84d8a;
+  --color-accent-hover: #d63d7a;
+  --color-accent-light: #fdf0f5;
   --font-serif: "Playfair Display", "Noto Serif SC", "Georgia", serif;
   --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
 }
@@ -31,10 +31,19 @@ body {
   margin: 0;
 }
 
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-ink-muted); }
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-muted);
+}
 
 .markdown-body pre {
   background: #1a1a1a;
@@ -59,7 +68,8 @@ body {
   border-collapse: collapse;
   margin: 0.75rem 0;
 }
-.markdown-body th, .markdown-body td {
+.markdown-body th,
+.markdown-body td {
   border: 1px solid var(--color-border);
   padding: 0.6rem 0.85rem;
   text-align: left;
@@ -68,21 +78,83 @@ body {
   background: var(--color-cream);
   font-weight: 600;
 }
-.markdown-body ul, .markdown-body ol {
+.markdown-body ul,
+.markdown-body ol {
   padding-left: 1.5rem;
   margin: 0.5rem 0;
 }
-.markdown-body li { margin: 0.25rem 0; }
-.markdown-body h2, .markdown-body h3 {
+.markdown-body li {
+  margin: 0.25rem 0;
+}
+.markdown-body h2,
+.markdown-body h3 {
   font-family: var(--font-serif);
   margin-top: 1rem;
   margin-bottom: 0.5rem;
 }
 
 @keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 .animate-marquee {
   animation: marquee 25s linear infinite;
+}
+
+/* 通知中心：与 NoticeModal 一致的滚动区与未读高亮 */
+.card-content-scroll,
+.notice-content-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.card-content-scroll::-webkit-scrollbar,
+.notice-content-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==================== 未读通知闪光效果 ==================== */
+@keyframes sweep-shine {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.shine-text {
+  background: linear-gradient(
+    90deg,
+    currentColor 0%,
+    currentColor 40%,
+    rgba(255, 255, 255, 0.9) 50%,
+    currentColor 60%,
+    currentColor 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: sweep-shine 4s linear infinite;
+}
+
+.dark .shine-text {
+  background: linear-gradient(
+    90deg,
+    currentColor 0%,
+    currentColor 40%,
+    #facc15 50%,
+    currentColor 60%,
+    currentColor 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }

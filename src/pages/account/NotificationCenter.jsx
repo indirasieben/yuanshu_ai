@@ -1,7 +1,21 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import {
+  Button,
+  Modal,
+  Empty,
+  Tabs,
+  TabPane,
+  Timeline,
+} from "@douyinfe/semi-ui";
 import { useTranslation } from "react-i18next";
-import { Bell, Megaphone } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import { getRelativeTime } from "../../helpers";
+import { marked } from "marked";
+import {
+  IllustrationNoContent,
+  IllustrationNoContentDark,
+} from "@douyinfe/semi-illustrations";
+import { Bell, Megaphone, Loader2 } from "lucide-react";
+
 import toast from "react-hot-toast";
 import { api } from "../../lib/api";
 import { useStatusStore } from "../../stores/statusStore";
@@ -21,51 +35,28 @@ function formatAbsoluteTime(publishDate) {
   )} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-function formatRelativeTime(publishDate, language) {
-  if (!publishDate) return "";
-  const d = new Date(publishDate);
-  if (isNaN(d.getTime())) return "";
-
-  const diffMs = d.getTime() - Date.now(); // future positive
-  const absMs = Math.abs(diffMs);
-
-  const seconds = Math.round(absMs / 1000);
-  const minutes = Math.round(seconds / 60);
-  const hours = Math.round(minutes / 60);
-  const days = Math.round(hours / 24);
-
-  const isFuture = diffMs > 0;
-  const zh = language !== "en" && language !== "en-US";
-
-  if (seconds < 30) return zh ? "刚刚" : "just now";
-  if (minutes < 60) {
-    if (zh)
-      return `${isFuture ? "在" : ""}${minutes} 分钟${isFuture ? "后" : "前"}`;
-    return isFuture ? `in ${minutes} minutes` : `${minutes} minutes ago`;
-  }
-  if (hours < 24) {
-    if (zh)
-      return `${isFuture ? "在" : ""}${hours} 小时${isFuture ? "后" : "前"}`;
-    return isFuture ? `in ${hours} hours` : `${hours} hours ago`;
-  }
-
-  if (zh) return `${isFuture ? "在" : ""}${days} 天${isFuture ? "后" : "前"}`;
-  return isFuture ? `in ${days} days` : `${days} days ago`;
-}
-
 function getKeyForItem(item) {
   return `${item?.publishDate || ""}-${(item?.content || "").slice(0, 30)}`;
 }
 
 export default function NotificationCenter() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const status = useStatusStore((s) => s.status);
   const fetchStatus = useStatusStore((s) => s.fetchStatus);
 
-  const [activeTab, setActiveTab] = useState("notice"); // system | notice
+  const [activeTab, setActiveTab] = useState("inApp");
   const [loadingNotice, setLoadingNotice] = useState(false);
   const [noticeContent, setNoticeContent] = useState("");
   const [noticeError, setNoticeError] = useState(null);
+  const [readKeys, setReadKeys] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(NOTICE_READ_KEYS_STORAGE);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     if (!status) {
@@ -82,12 +73,19 @@ export default function NotificationCenter() {
       setNoticeError(null);
       try {
         const res = await api.get("/api/notice");
-        const payload = res?.data ?? res;
-        const content = res?.data === "" ? "" : payload || "";
-        if (mounted) setNoticeContent(content);
+        const data = res?.data;
+        if (!mounted) return;
+        if (data != null && data !== "") {
+          setNoticeContent(marked.parse(String(data)));
+        } else {
+          setNoticeContent("");
+        }
       } catch (err) {
         const msg = err?.message || String(err);
-        if (mounted) setNoticeError(msg);
+        if (mounted) {
+          setNoticeError(msg);
+          setNoticeContent("");
+        }
         toast.error(msg);
       } finally {
         if (mounted) setLoadingNotice(false);
@@ -100,7 +98,17 @@ export default function NotificationCenter() {
     };
   }, []);
 
-  // 进入通知中心视为已读：把当前 announcements 全部写入本地已读列表
+  const announcements = useMemo(() => {
+    const list = status?.announcements;
+    if (Array.isArray(list)) return list;
+
+    const alt =
+      status?.notice?.announcements ||
+      status?.system_notice?.announcements ||
+      status?.systemAnnouncements;
+    return Array.isArray(alt) ? alt : [];
+  }, [status]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const direct = status?.announcements;
@@ -114,168 +122,159 @@ export default function NotificationCenter() {
     })();
     if (!list.length) return;
 
-    const raw = window.localStorage.getItem(NOTICE_READ_KEYS_STORAGE);
-    let readKeys = [];
-    try {
-      readKeys = raw ? JSON.parse(raw) : [];
-    } catch {
-      readKeys = [];
-    }
-
-    const readSet = new Set(Array.isArray(readKeys) ? readKeys : []);
-    list.forEach((it) => readSet.add(getKeyForItem(it)));
-
-    window.localStorage.setItem(
-      NOTICE_READ_KEYS_STORAGE,
-      JSON.stringify(Array.from(readSet)),
-    );
+    setReadKeys((prev) => {
+      const readSet = new Set(Array.isArray(prev) ? prev : []);
+      list.forEach((it) => readSet.add(getKeyForItem(it)));
+      const next = Array.from(readSet);
+      window.localStorage.setItem(
+        NOTICE_READ_KEYS_STORAGE,
+        JSON.stringify(next),
+      );
+      return next;
+    });
   }, [status]);
 
-  const announcements = useMemo(() => {
-    const list = status?.announcements;
-    if (Array.isArray(list)) return list;
-
-    // 兼容：后端字段可能被命名为其他形态
-    const alt =
-      status?.notice?.announcements ||
-      status?.system_notice?.announcements ||
-      status?.systemAnnouncements;
-    return Array.isArray(alt) ? alt : [];
-  }, [status]);
+  const readSet = useMemo(
+    () => new Set(Array.isArray(readKeys) ? readKeys : []),
+    [readKeys],
+  );
 
   const processedAnnouncements = useMemo(() => {
-    const unreadKeys = []; // 这里暂未有“未读 key 列表”的上层状态
-    const unreadSet = new Set(unreadKeys);
-
     return (announcements || []).slice(0, 20).map((item) => {
-      const relative = formatRelativeTime(item?.publishDate, i18n.language);
+      const key = getKeyForItem(item);
       const absoluteTime = formatAbsoluteTime(item?.publishDate);
 
       return {
-        key: getKeyForItem(item),
+        key,
         type: item?.type || "default",
         time: absoluteTime,
         content: item?.content || "",
         extra: item?.extra || "",
-        relative,
-        isUnread: unreadSet.has(getKeyForItem(item)),
+        relative: getRelativeTime(item.publishDate),
+        isUnread: !readSet.has(key),
       };
     });
-  }, [announcements, i18n.language]);
+  }, [announcements, readSet]);
 
-  const renderEmpty = (icon, titleText, descText) => (
-    <div className="py-12 text-center">
-      {icon}
-      <p className="text-sm text-ink-muted mt-3">{titleText}</p>
-      <p className="text-xs text-ink-faint mt-1">{descText}</p>
-    </div>
-  );
+  const renderMarkdownNotice = () => {
+    if (loadingNotice) {
+      return (
+        <div className="py-12 flex flex-col items-center justify-center gap-2">
+          <Loader2 className="animate-spin text-ink-muted" size={18} />
+          <div className="text-xs text-ink-muted">{t("加载中...")}</div>
+        </div>
+      );
+    }
+
+    if (noticeError || !noticeContent) {
+      return (
+        <div className="py-12">
+          <Empty
+            className="text-sm"
+            image={
+              <IllustrationNoContent style={{ width: 150, height: 150 }} />
+            }
+            darkModeImage={
+              <IllustrationNoContentDark style={{ width: 150, height: 150 }} />
+            }
+            description={t("暂无公告")}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        dangerouslySetInnerHTML={{ __html: noticeContent }}
+        className="markdown-body notice-content-scroll max-h-[55vh] overflow-y-auto pr-2 text-[13px] leading-relaxed text-ink"
+      />
+    );
+  };
+
+  const renderAnnouncementTimeline = () => {
+    if (processedAnnouncements.length === 0) {
+      return (
+        <div className="py-12">
+          <Empty
+            className="text-sm"
+            image={
+              <IllustrationNoContent style={{ width: 150, height: 150 }} />
+            }
+            darkModeImage={
+              <IllustrationNoContentDark style={{ width: 150, height: 150 }} />
+            }
+            description={t("暂无系统公告")}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-h-[55vh] overflow-y-auto pr-2 card-content-scroll">
+        <Timeline mode="left">
+          {processedAnnouncements.map((item, idx) => {
+            const htmlContent = marked.parse(item.content || "");
+            const htmlExtra = item.extra ? marked.parse(item.extra) : "";
+            return (
+              <Timeline.Item
+                key={item.key || idx}
+                type={item.type}
+                time={`${item.relative ? `${item.relative} ` : ""}${item.time}`}
+                extra={
+                  item.extra ? (
+                    <div
+                      className="text-xs text-ink-muted"
+                      dangerouslySetInnerHTML={{ __html: htmlExtra }}
+                    />
+                  ) : null
+                }
+              >
+                <div>
+                  <div
+                    className={item.isUnread ? "shine-text" : ""}
+                    dangerouslySetInnerHTML={{ __html: htmlContent }}
+                  />
+                </div>
+              </Timeline.Item>
+            );
+          })}
+        </Timeline>
+      </div>
+    );
+  };
+
+  const renderBody = () => {
+    if (activeTab === "inApp") {
+      return renderMarkdownNotice();
+    }
+    return renderAnnouncementTimeline();
+  };
 
   return (
     <div>
-      <h2 className="text-base font-medium text-ink mb-6">{t("通知中心")}</h2>
-
-      <div className="bg-cream-light rounded-lg p-1 gap-1 mb-5 inline-block">
-        <button
-          type="button"
-          onClick={() => setActiveTab("notice")}
-          className={`px-4 py-1.5 rounded-md text-xs font-medium cursor-pointer border-none transition-all ${
-            activeTab === "notice"
-              ? "bg-card text-ink shadow-sm"
-              : "text-ink-muted hover:text-ink bg-transparent"
-          }`}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Bell size={14} /> {t("通知")}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("system")}
-          className={`px-4 py-1.5 rounded-md text-xs font-medium cursor-pointer border-none transition-all ${
-            activeTab === "system"
-              ? "bg-card text-ink shadow-sm"
-              : "text-ink-muted hover:text-ink bg-transparent"
-          }`}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Megaphone size={14} /> {t("系统公告")}
-          </span>
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h2 className="text-base font-medium text-ink m-0">{t("通知中心")}</h2>
+        <Tabs activeKey={activeTab} onChange={setActiveTab} type="button">
+          <TabPane
+            tab={
+              <span className="inline-flex items-center gap-1">
+                <Bell size={14} /> {t("通知")}
+              </span>
+            }
+            itemKey="inApp"
+          />
+          <TabPane
+            tab={
+              <span className="inline-flex items-center gap-1">
+                <Megaphone size={14} /> {t("系统公告")}
+              </span>
+            }
+            itemKey="system"
+          />
+        </Tabs>
       </div>
 
-      {activeTab === "notice" && (
-        <div>
-          {loadingNotice ? (
-            <div className="py-12 text-center text-sm text-ink-muted">
-              加载中...
-            </div>
-          ) : noticeError ? (
-            renderEmpty(
-              <Bell size={28} className="text-ink-faint mx-auto" />,
-              t("暂无通知"),
-              t("系统公告、额度预警等通知将显示在这里"),
-            )
-          ) : !noticeContent ? (
-            renderEmpty(
-              <Bell size={28} className="text-ink-faint mx-auto" />,
-              t("暂无通知"),
-              t("系统公告、额度预警等通知将显示在这里"),
-            )
-          ) : (
-            <div className="markdown-body text-[13px] leading-relaxed text-ink max-h-[55vh] overflow-y-auto pr-2">
-              <ReactMarkdown>{noticeContent}</ReactMarkdown>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === "system" && (
-        <div>
-          {processedAnnouncements.length === 0 ? (
-            renderEmpty(
-              <Megaphone size={28} className="text-ink-faint mx-auto" />,
-              t("暂无通知"),
-              t("系统公告、额度预警等通知将显示在这里"),
-            )
-          ) : (
-            <div className="max-h-[55vh] overflow-y-auto pr-2 space-y-6">
-              <div className="space-y-4">
-                {processedAnnouncements.map((item) => (
-                  <div key={item.key} className="flex gap-4">
-                    <div className="mt-2 shrink-0">
-                      <div className="w-2.5 h-2.5 rounded-full bg-ink-faint" />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-4">
-                        <div className="text-xs text-ink-muted">
-                          {item.relative ? (
-                            <span className="mr-2">{item.relative}</span>
-                          ) : null}
-                          {item.time}
-                        </div>
-                      </div>
-
-                      <div className="markdown-body text-[13px] leading-relaxed text-ink mt-2">
-                        <ReactMarkdown>{item.content}</ReactMarkdown>
-                      </div>
-
-                      {item.extra ? (
-                        <div className="mt-2 text-xs text-ink-muted">
-                          <div className="markdown-body">
-                            <ReactMarkdown>{item.extra}</ReactMarkdown>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {renderBody()}
     </div>
   );
 }

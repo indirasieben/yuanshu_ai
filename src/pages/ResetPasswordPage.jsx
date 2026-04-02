@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import toast from "react-hot-toast";
 import Turnstile from "react-turnstile";
+import { useStatus } from "../hooks/common/useStatus";
 
 /**
  * 密码重置页面
@@ -21,15 +22,7 @@ export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const status = useMemo(() => {
-    try {
-      const statusData = localStorage.getItem("status");
-      if (!statusData) return {};
-      return JSON.parse(statusData) || {};
-    } catch {
-      return {};
-    }
-  }, []);
+  const { status, getLatestStatus } = useStatus();
   const turnstileEnabled = Boolean(status?.turnstile_check);
   const turnstileSiteKey = status?.turnstile_site_key || "";
 
@@ -39,14 +32,16 @@ export default function ResetPasswordPage() {
       toast.error(t("请输入邮箱"));
       return;
     }
-    if (turnstileEnabled && !turnstileToken) {
+    const currentStatus = getLatestStatus();
+    const currentTurnstileEnabled = Boolean(currentStatus?.turnstile_check);
+    if (currentTurnstileEnabled && !turnstileToken) {
       toast.error(t("请先完成人机验证"));
       return;
     }
     setIsLoading(true);
     try {
       await api.get(
-        `/api/reset_password?email=${encodeURIComponent(email)}&turnstile=${turnstileToken}}`,
+        `/api/reset_password?email=${encodeURIComponent(email)}&turnstile=${currentTurnstileEnabled ? turnstileToken : ""}`,
       );
       setStep(2);
     } catch (err) {

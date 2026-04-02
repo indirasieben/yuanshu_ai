@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Toaster } from "react-hot-toast";
+import { Loader2 } from "lucide-react";
 import { useAuthStore } from "./stores/authStore";
 import { useStatusStore } from "./stores/statusStore";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -28,7 +29,10 @@ function LoadingFallback() {
   const { t } = useTranslation();
   return (
     <div className="flex items-center justify-center h-screen bg-cream">
-      <div className="text-ink-muted text-sm">{t("加载中…")}</div>
+      <div className="flex flex-col items-center justify-center gap-2">
+        <Loader2 className="animate-spin text-ink-muted" size={20} />
+        <div className="text-ink-muted text-sm">{t("加载中…")}</div>
+      </div>
     </div>
   );
 }

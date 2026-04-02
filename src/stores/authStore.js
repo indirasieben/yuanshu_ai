@@ -108,8 +108,9 @@ export const useAuthStore = create(
         try {
           // New-API 登录成功后通过 session cookie 建立认证，data.data 是用户基本信息对象
           // 先将 data.data 中的 id 存入 store，确保 fetchSelf() 发请求时 New-Api-User header 不为空
+          const turnstile = turnstileToken || "";
           const data = await api.post(
-            `/api/user/login?turnstile=${turnstileToken}`,
+            `/api/user/login?turnstile=${turnstile}`,
             {
               username,
               password,
@@ -141,7 +142,8 @@ export const useAuthStore = create(
       }) => {
         set({ isLoading: true });
         try {
-          await api.post(`/api/user/register?turnstile=${turnstileToken}`, {
+          const turnstile = turnstileToken || "";
+          await api.post(`/api/user/register?turnstile=${turnstile}`, {
             username,
             password,
             password2,

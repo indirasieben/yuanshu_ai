@@ -15,6 +15,7 @@ import {
   ChevronRight,
   AlertTriangle,
   ClipboardList,
+  Loader2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
@@ -1195,7 +1196,15 @@ resp = client.chat.completions.create(
                       colSpan={9}
                       className="px-3 py-12 text-center text-sm text-ink-muted"
                     >
-                      {t("加载中…")}
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2
+                          className="animate-spin text-ink-muted"
+                          size={18}
+                        />
+                        <div className="text-xs text-ink-muted">
+                          {t("加载中…")}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : tokens.length === 0 ? (

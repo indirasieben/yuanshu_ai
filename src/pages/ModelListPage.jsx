@@ -13,6 +13,15 @@ import {
   Coins,
 } from "lucide-react";
 import { useModelStore } from "../stores/modelStore";
+import {
+  Card,
+  Avatar,
+  Typography,
+  Tag,
+  Space,
+  Select,
+} from "@douyinfe/semi-ui";
+
 import { copy } from "../helpers/utils";
 import toast from "react-hot-toast";
 import { API_ENDPOINTS } from "../constants/common.constant";
@@ -108,27 +117,30 @@ const ENDPOINT_TYPE_MAP = {
   default: { label: "", path: "/v1/chat/completions", method: "POST" },
 };
 
-function getEndpointTypesForModel(model) {
-  const raw = model?.supported_endpoint_types;
-  if (!Array.isArray(raw)) return [];
-  const normalized = raw
-    .map((x) => String(x || "").trim())
-    .filter(Boolean)
-    .map((x) => x.toLowerCase());
-
-  // 保序去重
+function normalizeEndpointTypes(rawTypes) {
+  if (!Array.isArray(rawTypes)) return [];
   const seen = new Set();
-  const unique = [];
-  for (const x of normalized) {
-    if (seen.has(x)) continue;
-    seen.add(x);
-    unique.push(x);
+  const result = [];
+  for (const item of rawTypes) {
+    const original = String(item || "").trim();
+    if (!original) continue;
+    const lower = original.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    result.push({ original, lower });
   }
+  return result;
+}
 
-  // 只展示后端允许的端点（避免未开放路径）
-  return unique.filter((typeKey) => {
-    const info = ENDPOINT_TYPE_MAP[typeKey] || ENDPOINT_TYPE_MAP.default;
-    return API_ENDPOINTS.includes(info?.path);
+function isAllowedEndpointPath(path) {
+  const target = String(path || "").trim();
+  if (!target) return false;
+  return API_ENDPOINTS.some((base) => {
+    const b = String(base || "").trim();
+    if (!b) return false;
+    return (
+      target === b || target.startsWith(`${b}/`) || target.startsWith(`${b}:`)
+    );
   });
 }
 
@@ -144,8 +156,17 @@ function getPricingPrefs() {
 
 export default function ModelListPage() {
   const { t } = useTranslation();
-  const { allModels, chatFavorites, addFavorite, removeFavorite, fetchModels } =
-    useModelStore();
+  const {
+    allModels,
+    groupRatio,
+    usableGroup,
+    endpointMap,
+    autoGroups,
+    chatFavorites,
+    addFavorite,
+    removeFavorite,
+    fetchModels,
+  } = useModelStore();
   const [search, setSearch] = useState("");
   const [filterProvider, setFilterProvider] = useState(ALL_PROVIDERS_VALUE);
   const [expandedId, setExpandedId] = useState(null);
@@ -193,6 +214,15 @@ export default function ModelListPage() {
     return groups;
   }, [filtered]);
 
+  const mergedEndpointMap = useMemo(() => {
+    const dynamic =
+      endpointMap && typeof endpointMap === "object" ? endpointMap : {};
+    return {
+      ...ENDPOINT_TYPE_MAP,
+      ...dynamic,
+    };
+  }, [endpointMap]);
+
   const copyText = async (e, text) => {
     e.stopPropagation();
     if (await copy(text)) {
@@ -236,17 +266,27 @@ export default function ModelListPage() {
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-card text-ink text-sm outline-none focus:border-ink-muted transition-colors"
             />
           </div>
-          <select
+          <Select
             value={filterProvider}
-            onChange={(e) => setFilterProvider(e.target.value)}
-            className="px-4 py-2.5 rounded-xl border border-border bg-card text-ink text-sm outline-none cursor-pointer"
+            onChange={(value) => setFilterProvider(String(value))}
+            showArrow
+            style={{
+              width: "120px",
+              height: "42px",
+              backgroundColor: "#fff",
+              borderRadius: "12px",
+            }}
           >
             {providers.map((p) => (
-              <option key={p} value={p}>
+              <Select.Option
+                key={p}
+                value={p}
+                label={p === ALL_PROVIDERS_VALUE ? t("厂商: 全部") : p}
+              >
                 {p === ALL_PROVIDERS_VALUE ? t("厂商: 全部") : p}
-              </option>
+              </Select.Option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {/* 模型列表 */}
@@ -255,6 +295,14 @@ export default function ModelListPage() {
           .map(([provider, models]) => (
             <div key={provider} className="mb-6">
               <h2 className="text-sm font-medium text-ink-muted mb-3">
+                <Avatar
+                  size="small"
+                  alt={provider}
+                  color="transparent"
+                  shape="circle"
+                >
+                  {models[0].icon}
+                </Avatar>
                 {provider}
               </h2>
               <div className="bg-card rounded-xl border border-border divide-y divide-border-light">
@@ -271,6 +319,16 @@ export default function ModelListPage() {
                           }
                         >
                           <div className="flex items-center gap-2">
+                            {model.icon && (
+                              <Avatar
+                                size="extra-extra-small"
+                                alt={model.name}
+                                color="transparent"
+                                shape="circle"
+                              >
+                                {model.icon}
+                              </Avatar>
+                            )}
                             <span className="text-sm font-medium text-ink">
                               {model.name}
                             </span>
@@ -288,16 +346,21 @@ export default function ModelListPage() {
                                 {model.badge}
                               </span>
                             )}
-                            {model.multimodal && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cream-dark text-ink-muted">
-                                {t("多模态")}
-                              </span>
+                            {model.customTags.length > 0 && (
+                              <Space wrap>
+                                {model.customTags.map((tag, index) => (
+                                  <Tag
+                                    key={index}
+                                    color={tag.color}
+                                    shape="circle"
+                                    size="small"
+                                  >
+                                    {tag.text}
+                                  </Tag>
+                                ))}
+                              </Space>
                             )}
-                            {model.contextWindow && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cream-dark text-ink-faint">
-                                {model.contextWindow}
-                              </span>
-                            )}
+
                             {isExpanded ? (
                               <ChevronUp size={12} className="text-ink-faint" />
                             ) : (
@@ -344,7 +407,9 @@ export default function ModelListPage() {
                           )}
                           {/* API模型可用端点 */}
                           {(() => {
-                            const types = getEndpointTypesForModel(model);
+                            const types = normalizeEndpointTypes(
+                              model?.supported_endpoint_types,
+                            );
                             if (!types.length) return null;
                             return (
                               <div className="mb-3 rounded-xl border border-border-light bg-cream/50">
@@ -362,38 +427,60 @@ export default function ModelListPage() {
                                   </div>
                                 </div>
                                 <div className="px-3 py-2">
-                                  {types.map((typeKey) => {
+                                  {types.map(({ original, lower }) => {
                                     const info =
-                                      ENDPOINT_TYPE_MAP[typeKey] ||
-                                      ENDPOINT_TYPE_MAP.default;
-                                    if (!info?.path) return null;
+                                      mergedEndpointMap[original] ||
+                                      mergedEndpointMap[lower] ||
+                                      mergedEndpointMap.default;
                                     const modelName =
                                       model?.model_name || model?.id || "";
-                                    const resolvedPath = info.path.includes(
+                                    const pathTemplate = String(
+                                      info?.path || "",
+                                    );
+                                    const resolvedPath = pathTemplate.includes(
                                       "{model}",
                                     )
-                                      ? info.path.replaceAll(
+                                      ? pathTemplate.replaceAll(
                                           "{model}",
                                           modelName,
                                         )
-                                      : info.path;
+                                      : pathTemplate;
+                                    const allowedByTemplate =
+                                      !!pathTemplate &&
+                                      isAllowedEndpointPath(pathTemplate);
+                                    const allowedByResolved =
+                                      !!resolvedPath &&
+                                      isAllowedEndpointPath(resolvedPath);
+                                    const shouldShowPath =
+                                      !resolvedPath ||
+                                      allowedByTemplate ||
+                                      allowedByResolved;
+                                    const methodText = String(
+                                      info?.method || "POST",
+                                    ).toUpperCase();
                                     return (
                                       <div
-                                        key={typeKey}
+                                        key={lower}
                                         className="flex items-start justify-between gap-3 py-1.5 border-b border-dashed last:border-0 border-border-light"
                                       >
                                         <div className="min-w-0">
                                           <div className="text-xs text-ink-muted">
-                                            {info.label || typeKey}
-                                            {"："}
-                                            <span className="text-ink-faint break-all">
-                                              {resolvedPath}
-                                            </span>
+                                            {info.label || original}
+                                            {shouldShowPath && resolvedPath
+                                              ? "："
+                                              : ""}
+                                            {shouldShowPath && resolvedPath ? (
+                                              <span className="text-ink-faint break-all">
+                                                {resolvedPath}
+                                              </span>
+                                            ) : null}
                                           </div>
                                         </div>
-                                        <div className="shrink-0 text-[10px] text-ink-faint">
-                                          {info.method || "POST"}
-                                        </div>
+                                        {shouldShowPath && resolvedPath ? (
+                                          <div className="shrink-0 text-[10px] text-ink-faint">
+                                            {methodText}
+                                          </div>
+                                        ) : null}
                                       </div>
                                     );
                                   })}
@@ -408,11 +495,25 @@ export default function ModelListPage() {
                             )
                               ? model.enable_groups
                               : [];
-                            const groups = enableGroups
+                            const availableGroups = Object.keys(
+                              usableGroup && typeof usableGroup === "object"
+                                ? usableGroup
+                                : {},
+                            )
                               .map((g) => String(g || "").trim())
                               .filter(Boolean);
-                            const displayGroups = groups.filter(
-                              (g) => g !== "auto" && g !== "",
+                            const fallbackGroups = enableGroups
+                              .map((g) => String(g || "").trim())
+                              .filter((g) => g && g !== "auto");
+                            const displayGroups = (
+                              availableGroups.length
+                                ? availableGroups
+                                : fallbackGroups
+                            ).filter(
+                              (g) =>
+                                g !== "auto" &&
+                                g !== "" &&
+                                enableGroups.includes(g),
                             );
                             if (!displayGroups.length) return null;
 
@@ -435,9 +536,9 @@ export default function ModelListPage() {
                                   ? "bg-cream-dark text-ink-muted"
                                   : "bg-cream-dark text-ink-faint";
 
-                            const showAutoChain =
-                              groups.includes("auto") &&
-                              groups.includes("default");
+                            const autoChain = (
+                              Array.isArray(autoGroups) ? autoGroups : []
+                            ).filter((g) => enableGroups.includes(g));
 
                             return (
                               <div className="mb-3 rounded-xl border border-border-light bg-card/30 overflow-hidden">
@@ -455,18 +556,31 @@ export default function ModelListPage() {
                                   </div>
                                 </div>
 
-                                {showAutoChain && (
+                                {autoChain.length > 0 && (
                                   <div className="px-3 py-2 text-[11px] text-ink-muted border-b border-border-light">
                                     <span className="mr-2">
                                       {t("auto分组调用链路")}
                                     </span>
-                                    <span className="text-ink-faint">auto</span>
-                                    <span className="mx-1 text-ink-faint">
-                                      →
-                                    </span>
-                                    <span className="text-ink-faint">
-                                      default{t("分组")}
-                                    </span>
+                                    {autoChain.map((group, idx) => (
+                                      <span
+                                        key={group}
+                                        className="inline-flex items-center"
+                                      >
+                                        <Tag
+                                          color="white"
+                                          shape="circle"
+                                          size="small"
+                                        >
+                                          {group}
+                                          {t("分组")}
+                                        </Tag>
+                                        {idx < autoChain.length - 1 && (
+                                          <span className="mx-1 text-ink-faint">
+                                            →
+                                          </span>
+                                        )}
+                                      </span>
+                                    ))}
                                   </div>
                                 )}
 
@@ -480,6 +594,9 @@ export default function ModelListPage() {
                                         <th className="px-3 py-2 font-medium">
                                           {t("计费类型")}
                                         </th>
+                                        {/* <th className="px-3 py-2 font-medium">
+                                          {t("倍率")}
+                                        </th> */}
                                         <th className="px-3 py-2 font-medium">
                                           {t("价格摘要")}
                                         </th>
@@ -490,7 +607,11 @@ export default function ModelListPage() {
                                         const priceData = calculateModelPrice({
                                           record: model,
                                           selectedGroup: group,
-                                          groupRatio: {},
+                                          groupRatio:
+                                            groupRatio &&
+                                            typeof groupRatio === "object"
+                                              ? groupRatio
+                                              : {},
                                           tokenUnit,
                                           displayPrice,
                                           currency,
@@ -505,18 +626,39 @@ export default function ModelListPage() {
                                         return (
                                           <tr key={group} className="text-xs">
                                             <td className="px-3 py-2">
-                                              <span className="inline-flex items-center rounded-full bg-cream-dark text-ink-muted border border-border-light px-2 py-0.5 text-[11px]">
+                                              <Tag
+                                                color="white"
+                                                shape="circle"
+                                                size="small"
+                                              >
                                                 {group}
                                                 {t("分组")}
-                                              </span>
+                                              </Tag>
                                             </td>
                                             <td className="px-3 py-2">
-                                              <span
-                                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${billingPill}`}
+                                              <Tag
+                                                color="violet"
+                                                shape="circle"
+                                                size="small"
                                               >
                                                 {billingType}
-                                              </span>
+                                              </Tag>
                                             </td>
+                                            {/* <td className="px-3 py-2 text-ink-muted">
+                                              <Tag
+                                                color="white"
+                                                shape="circle"
+                                                size="small"
+                                              >
+                                                {Number(
+                                                  (groupRatio &&
+                                                  typeof groupRatio === "object"
+                                                    ? groupRatio[group]
+                                                    : 1) ?? 1,
+                                                )}
+                                                x
+                                              </Tag>
+                                            </td> */}
                                             <td className="px-3 py-2">
                                               <div className="space-y-1">
                                                 {items.map((item) => (
@@ -543,19 +685,6 @@ export default function ModelListPage() {
                               </div>
                             );
                           })()}
-
-                          {model.capabilities?.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {model.capabilities.map((cap) => (
-                                <span
-                                  key={cap}
-                                  className="text-[10px] px-2 py-0.5 rounded-full bg-cream text-ink-muted border border-border-light"
-                                >
-                                  {cap}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>

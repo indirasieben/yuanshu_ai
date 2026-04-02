@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { apiRequest } from "../lib/api";
 import { buildUserScopedStorageKey } from "./persistScope";
+import { stringToColor,getModelCategories } from "../helpers";
+import i18n from "../i18n/i18n";
 
 // 默认常用模型（PRD MOD-002）
 const DEFAULT_FAVORITES = [
@@ -16,23 +18,19 @@ const DEFAULT_FAVORITES = [
 ];
 const MODEL_STORAGE_BASE_KEY = "model-storage";
 
-const parseCapabilitiesFromTags = (tags) => {
-  if (!tags || typeof tags !== "string") return [];
-  return tags
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .filter((item) => !/^\d+(\.\d+)?\s*[KMG]$/i.test(item));
-};
+// 获取模型标签
+const getModelCustomTags = (model) => {
+  const tags = [];
 
-const parseContextWindowFromTags = (tags) => {
-  if (!tags || typeof tags !== "string") return "";
-  const items = tags
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const context = items.find((item) => /^\d+(\.\d+)?\s*[KMG]$/i.test(item));
-  return context || "";
+  if (model?.tags) {
+    const customTags = model.tags.split(",").filter((tag) => tag.trim());
+    customTags.forEach((tag) => {
+      const tagText = tag.trim();
+      tags.push({ text: tagText, color: stringToColor(tagText) });
+    });
+  }
+
+  return tags;
 };
 
 const makeProviderMap = (vendors = []) =>
@@ -43,23 +41,34 @@ const makeProviderMap = (vendors = []) =>
     return acc;
   }, {});
 
-const transformApiModel = (model, providerMap) => {
+const transformApiModel = (model, providerMap, modelCategories) => {
   const id = model.model_name || model.id || "";
-  const capabilities = parseCapabilitiesFromTags(model.tags);
-  const contextWindow = parseContextWindowFromTags(model.tags);
+  const customTags = getModelCustomTags(model);
+  let icon = null;
+
+  if (modelCategories && typeof modelCategories === "object") {
+    const modelName = model.model_name || id;
+    for (const [key, category] of Object.entries(modelCategories)) {
+      if (key === "all") continue;
+      if (!category?.icon || typeof category?.filter !== "function")
+        continue;
+      if (category.filter({ model_name: modelName })) {
+        icon = category.icon;
+        break;
+      }
+    }
+  }
 
   return {
     ...model,
     id,
     model_name: id,
     name: id,
+    icon,
     provider: providerMap[model.vendor_id] || "其他",
     badge: "",
-    multimodal:
-      capabilities.includes("Vision") || capabilities.includes("Audio"),
     description: model.description || "",
-    capabilities,
-    contextWindow,
+    customTags,
   };
 };
 
@@ -67,6 +76,10 @@ export const useModelStore = create(
   persist(
     (set, get) => ({
       allModels: [],
+      groupRatio: {},
+      usableGroup: {},
+      endpointMap: {},
+      autoGroups: [],
       chatFavorites: DEFAULT_FAVORITES,
       isLoading: false,
 
@@ -120,11 +133,36 @@ export const useModelStore = create(
           const data = await apiRequest("/api/pricing");
           const modelList = Array.isArray(data?.data) ? data.data : [];
           const providerMap = makeProviderMap(data?.vendors);
+      const modelCategories = getModelCategories(i18n.t);
+          const groupRatio =
+            data?.group_ratio && typeof data.group_ratio === "object"
+              ? data.group_ratio
+              : {};
+          const usableGroup =
+            data?.usable_group && typeof data.usable_group === "object"
+              ? data.usable_group
+              : {};
+          const endpointMap =
+            data?.supported_endpoint &&
+            typeof data.supported_endpoint === "object"
+              ? data.supported_endpoint
+              : {};
+          const autoGroups = Array.isArray(data?.auto_groups)
+            ? data.auto_groups
+            : [];
           const apiModels = modelList
-            .map((model) => transformApiModel(model, providerMap))
+            .map((model) =>
+              transformApiModel(model, providerMap, modelCategories),
+            )
             .filter((model) => model.id);
           if (apiModels.length > 0) {
-            set({ allModels: apiModels });
+            set({
+              allModels: apiModels,
+              groupRatio,
+              usableGroup,
+              endpointMap,
+              autoGroups,
+            });
           }
         } catch {
           // 使用本地默认数据

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
@@ -6,6 +6,7 @@ import { useAuthStore } from "../stores/authStore";
 import { api } from "../lib/api";
 import toast from "react-hot-toast";
 import Turnstile from "react-turnstile";
+import { useStatus } from "../hooks/common/useStatus";
 
 const AFF_KEY = "aff";
 const USERNAME_MAX_LEN = 20;
@@ -24,15 +25,9 @@ export default function RegisterPage() {
   const [turnstileToken, setTurnstileToken] = useState("");
   const { register, isLoading } = useAuthStore();
   const navigate = useNavigate();
-  const status = useMemo(() => {
-    try {
-      const statusData = localStorage.getItem("status");
-      if (!statusData) return {};
-      return JSON.parse(statusData) || {};
-    } catch {
-      return {};
-    }
-  }, []);
+
+  const { status, getLatestStatus } = useStatus();
+
   const turnstileEnabled = Boolean(status?.turnstile_check);
   const turnstileSiteKey = status?.turnstile_site_key || "";
 
@@ -54,8 +49,19 @@ export default function RegisterPage() {
     }
     setVerificationLoading(true);
     try {
+      // 提交时实时读取 status，避免首屏 status 未写入导致的竞态
+      const currentStatus = getLatestStatus();
+      const currentTurnstileEnabled = Boolean(currentStatus?.turnstile_check);
+      if (currentTurnstileEnabled && !turnstileToken) {
+        toast.error(t("请先完成人机验证"));
+        return;
+      }
+
+      const turnstileParam = currentTurnstileEnabled
+        ? `&turnstile=${turnstileToken}`
+        : "";
       await api.get(
-        `/api/verification?email=${encodeURIComponent(email.trim())}`,
+        `/api/verification?email=${encodeURIComponent(email.trim())}${turnstileParam}`,
       );
       toast.success(t("验证码已发送，请查收邮箱"));
       setCooldownSec(30);
@@ -99,7 +105,10 @@ export default function RegisterPage() {
       );
       return;
     }
-    if (turnstileEnabled && !turnstileToken) {
+    // 提交时实时读取 status，避免首屏 status 未写入导致的竞态
+    const currentStatus = getLatestStatus();
+    const currentTurnstileEnabled = Boolean(currentStatus?.turnstile_check);
+    if (currentTurnstileEnabled && !turnstileToken) {
       toast.error(t("请先完成人机验证"));
       return;
     }
@@ -114,7 +123,7 @@ export default function RegisterPage() {
       password2: confirmPassword,
       email: email.trim(),
       verification_code: verificationCode.trim(),
-      turnstileToken,
+      turnstileToken: currentTurnstileEnabled ? turnstileToken : "",
       ...(affCode ? { aff_code: affCode } : {}),
     });
     if (result.success) {

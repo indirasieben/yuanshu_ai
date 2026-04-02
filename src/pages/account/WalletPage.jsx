@@ -8,6 +8,7 @@ import {
   ArrowRightLeft,
   Gift,
   Ticket,
+  Loader2,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../stores/authStore";
@@ -172,7 +173,8 @@ function TopupHistoryModal({ open, onClose }) {
       {/* 列表 */}
       {loading ? (
         <div className="text-center py-8 text-xs text-ink-muted">
-          {t("加载中…")}
+          <Loader2 className="animate-spin text-ink-muted" size={18} />
+          <div className="text-xs text-ink-muted">{t("加载中…")}</div>
         </div>
       ) : items.length === 0 ? (
         <div className="text-center py-8 text-xs text-ink-muted">
@@ -1171,8 +1173,9 @@ export default function WalletPage() {
 
   if (loading) {
     return (
-      <div className="text-center py-16">
-        <p className="text-sm text-ink-muted">{t("加载中…")}</p>
+      <div className="text-center py-16 flex items-center justify-center gap-2">
+        <Loader2 className="animate-spin text-ink-muted" size={18} />
+        <div className="text-xs text-ink-muted">{t("加载中…")}</div>
       </div>
     );
   }
